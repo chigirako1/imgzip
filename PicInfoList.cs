@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Security.Principal;
-using System.Xml.Linq;
 
 namespace MyZipper
 {
@@ -66,6 +61,7 @@ namespace MyZipper
         public Size PicSize { get; }
         public bool IsDone { get; set; }
         public string ZipEntryName { get; set; }
+        public string ZipEntryNameOrig { get; set; }
         public bool IsRotated{ get; set; }
 
 
@@ -80,7 +76,8 @@ namespace MyZipper
 
             var image = Image.FromFile(fi.FullName);
             PicSize = image.Size;
-            ZipEntryName = string.Format("{0}({1}x{2}){3}", System.IO.Path.GetFileNameWithoutExtension(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
+            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", System.IO.Path.GetFileNameWithoutExtension(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
+            ZipEntryName = ZipEntryNameOrig;
         }
 
         public float GetAspectRatio()
@@ -99,14 +96,55 @@ namespace MyZipper
             return ratio;
         }
 
+        public string GetAspectRatioStr()
+        {
+            string r = "";
+            if (PicSize.Width > PicSize.Height)
+            {
+                r = string.Format("[16-{0}]", (int)Math.Truncate(16 / GetAspectRatio()));
+            }
+            else
+            {
+                r = string.Format("[{0}-16]", (int)Math.Truncate(GetAspectRatio() * 16));
+            }
+            return r;
+        }
+
+        public bool IsLongImage()
+        {
+            float ratio = GetAspectRatio();
+            float screenRatioPL = (float)_config.TargetScreenSize.Width / (float)_config.TargetScreenSize.Height;
+            float screenRatioLS = (float)_config.TargetScreenSize.Height / (float)_config.TargetScreenSize.Width;
+            if (ratio < screenRatioPL * 0.9 || ratio > screenRatioLS)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+
         public SplitScreenNumber GetSplitScreenInfo()
         {
+            double per = _config.allowPer;
             SplitScreenNumber sn;
-            //sn.col = Math.Max(_config.TargetScreenSize.Width / PicSize.Width, 1);
-            //sn.row = Math.Max(_config.TargetScreenSize.Height / PicSize.Height, 1);
-            sn.col = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * _config.allowPer), 1);
-            sn.row = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * _config.allowPer), 1);
-            
+
+            if (_config.isRotatePlImage &&
+                _config.TargetScreenSize.Height > _config.TargetScreenSize.Width &&
+                PicSize.Width < PicSize.Height
+                )
+            {
+                sn.col = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
+                sn.row = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
+            }
+            else
+            {
+                sn.row = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
+                sn.col = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
+            }
+
             return sn;
         }
 
@@ -122,7 +160,7 @@ namespace MyZipper
             int h = PicSize.Height;
             if (swapVH)
             {//横長
-                if (h > screenSize.Height / 2)
+                if (h > screenSize.Height / 2 || w >= screenSize.Width)
                 {
                     return true;
                 }
@@ -140,20 +178,6 @@ namespace MyZipper
                 bool vt = h * _config.allowPer > (screenSize.Height / 2);
                 return hz || vt;
             }
-        }
-
-        public string GetAspectRatioStr()
-        {
-            string r = "";
-            if (PicSize.Width > PicSize.Height)
-            {
-                r = string.Format("[16-{0}]", (int)Math.Truncate(16 / GetAspectRatio()));
-            }
-            else
-            {
-                r = string.Format("[{0}-16]", (int)Math.Truncate(GetAspectRatio() * 16));
-            }
-            return r;
         }
 
         public void PrintInfo(int idx)
