@@ -43,11 +43,6 @@ namespace MyZipper
         // 出力Zipを分割するファイル数（0なら分割しない)
         public int OutputFileDivedeThreshold { get; private set; }
 
-        // 縦長、横長画像を別のzipファイルに出力するか
-        public bool isSeparateOutput { get; private set; }
-
-        // 横長画像を回転するか
-        public bool isRotatePlImage{ get; private set; }
 
         //縦長画像用の分割数
         public int NumberOfSplitScreenVforPlImage { get; private set; }//垂直分割数
@@ -56,17 +51,25 @@ namespace MyZipper
         public int NumberOfSplitScreenVforLsImage { get; private set; }
         public int NumberOfSplitScreenHforLsImage { get; private set; }
 
-        public bool isPicSizeDraw { get; private set; }
-        public bool IsForce2P { get; private set; }
 
-        public bool isAppendIdxCover { get; private set; }
 
 
         public double allowPer { get; private set; }
 
         public DateTime? Since { get; set; }
 
+        // 縦長、横長画像を別のzipファイルに出力するか
+        public bool isSeparateOutput { get; private set; }
+
+        // 横長画像を回転するか
+        public bool isRotatePlImage { get; private set; }
+        public bool isRotateAlt{ get; private set; }
+        public bool isPicSizeDraw { get; private set; }
+        public bool IsForce2P { get; private set; }
+        public bool isAppendIdxCover { get; private set; }
         public bool isSplitLongImage { get; private set; }
+
+        public int IdxOutThreshold { get; private set; }
 
         public Config(string[] args)
         {
@@ -120,7 +123,7 @@ namespace MyZipper
             NumberOfSplitScreenVforPlImage = 2;
             NumberOfSplitScreenHforPlImage = 2;
             NumberOfSplitScreenVforLsImage = 1;
-            NumberOfSplitScreenHforLsImage = 3;
+            NumberOfSplitScreenHforLsImage = 2;
 
             allowPer = 0.9;
 
@@ -128,6 +131,9 @@ namespace MyZipper
 
             isPicSizeDraw = false;
             IsForce2P = false;
+            isRotateAlt = true;
+
+            IdxOutThreshold = 5;
         }
 
         private void SetOptions(string options)
@@ -149,6 +155,9 @@ namespace MyZipper
                         break;
                     case 'r':
                         isRotatePlImage = true;
+                        break;
+                    case 'R':
+                        isRotateAlt = false;
                         break;
                     case 's':
                         isSplitLongImage = true;
@@ -177,6 +186,12 @@ namespace MyZipper
             if (!isRotatePlImage)
             {
                 return false;
+            }
+
+            //※横長なら一律回転
+            if (imgSize.Width > imgSize.Height)
+            {
+                return true;
             }
 
             if (TargetScreenSize.Width <= TargetScreenSize.Height)

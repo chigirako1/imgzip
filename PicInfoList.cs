@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyZipper.src;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
@@ -223,12 +224,15 @@ namespace MyZipper
                     s.EndsWith(".gif", StringComparison.CurrentCultureIgnoreCase)
                     );
 
+            var filelist = new List<string>(files);
+            filelist.Sort(new NaturalStringComparer());
+
             MinWidth = Int32.MaxValue;
             MinHeight = Int32.MaxValue;
 
             var dic = new Dictionary<SplitScreenNumber, int>();
 
-            foreach (var f in files.Select((it, idx) => (it, idx)))
+            foreach (var f in filelist.Select((it, idx) => (it, idx)))
             {
                 var fi = new FileInfo(f.it);
 
@@ -236,7 +240,7 @@ namespace MyZipper
                 {
                     if (_config.Since > fi.CreationTime)
                     {
-                        Console.WriteLine("生成日時={0}:処理対象外のファイルです", fi.CreationTime);
+                        Console.WriteLine("生成日時={0}:処理対象外のファイルです。\"{1}\"", fi.CreationTime, fi.FullName);
                         continue;
                     }
                 }
