@@ -5,13 +5,16 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
-using System.Net;
-//using static System.Net.Mime.MediaTypeNames;
 
 namespace MyZipper
 {
     internal class Zipper
     {
+        static private Brush BG_BRUSH = Brushes.Black;
+        static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
+        //static private Brush FONT_BRUSH = Brushes.Navy;
+        static private Brush FONT_BRUSH = Brushes.Cyan;
+
         private Config _config;
         private CoordinateCalculator _coordinateCalculator;
 
@@ -117,6 +120,11 @@ namespace MyZipper
             {
                 splitNo.row++;
             }
+            if (splitNo.col * splitNo.row < piclist.PicInfos.Count)
+            {
+                splitNo.col++;
+            }
+
             byte[] bs = GetCombineImage(piclist.PicInfos, splitNo, true);
 
             AddZipEntry(archive, Config.IDX_IMAGE_ENTRY_NAME, bs);
@@ -137,7 +145,7 @@ namespace MyZipper
                 if (p.PicSize.Width <= p.PicSize.Height)
                 {   // 縦長
 
-                    if (p.IsOutputAlone(_config.TargetScreenSize))
+                    if (_config.NoComposite || p.IsOutputAlone(_config.TargetScreenSize))
                     {   // 一枚絵として出力
                         MakeImageAndAddZipEntry(ref cnt, p, archive);
                     }
@@ -154,7 +162,7 @@ namespace MyZipper
                 else
                 {   // 横長
 
-                    if (p.IsOutputAlone(_config.TargetScreenSize, true))
+                    if (_config.NoComposite || p.IsOutputAlone(_config.TargetScreenSize, true))
                     {  // 一枚絵として出力
                         MakeImageAndAddZipEntry(ref cnt, p, archive);
                     }
@@ -178,7 +186,7 @@ namespace MyZipper
 
                         if (p.PicSize.Width >= 640 && p.PicSize.Height>= 480)
                         {
-                            MakeImageAndAddZipEntry(ref cnt, p, archive);
+                            //MakeImageAndAddZipEntry(ref cnt, p, archive);
                         }
                     }
                 }
@@ -266,13 +274,7 @@ namespace MyZipper
             {
                 if (p.PicSize.Width > p.PicSize.Height)
                 {   // 横長
-#if false
-                    for (var splitIdx = 1; splitIdx <= 3; splitIdx++)
-                    {
-                        GetSplitedImageBinary(ref cnt, p, archive, splitIdx);
-                    }
-#else
-                    if (p.PicSize.Width > _config.TargetScreenSize.Height && p.IsLongImage())
+                    if (p.PicSize.Width > _config.TargetScreenSize.Height * 2)
                     {   // 細長いので3分割
                         for (var splitIdx = 1; splitIdx <= 3; splitIdx++)
                         {
@@ -283,14 +285,25 @@ namespace MyZipper
                     {   // 中央部分だけ
                         GetSplitedImageBinary(ref cnt, p, archive, 2);
                     }
-#endif
                 }
                 else
                 {
-                    //if (p.PicSize.Height * 0.9 > _config.TargetScreenSize.Height && p.IsLongImage())
-                    if (p.PicSize.Height > _config.TargetScreenSize.Height)
-                    {
-                        GetSplitedImageBinary(ref cnt, p, archive, 2);
+                    if (p.PicSize.Height> _config.TargetScreenSize.Height * 2)
+                    {   // 細長いので3分割
+                        for (var splitIdx = 1; splitIdx <= 3; splitIdx++)
+                        {
+                            GetSplitedImageBinary(ref cnt, p, archive, splitIdx);
+                        }
+                    }
+                    else
+                    {   // 中央部分だけ
+                        var picRatio = p.GetAspectRatio();
+                        var scrnRatio = _config.GetCanvasScreenRatio();
+                        Console.Error.WriteLine("pic={0}[{1}]\tscrn={2}", p.GetAspectRatioStr(), picRatio, scrnRatio);
+                        if (picRatio < scrnRatio * 0.9 || scrnRatio * 1.1 < picRatio)
+                        {
+                            GetSplitedImageBinary(ref cnt, p, archive, 2);
+                        }
                     }
                 }
             }
@@ -298,8 +311,9 @@ namespace MyZipper
 
         private void MakeImageAndAddZipEntrySub(ref int cnt, PicInfo p, ZipArchive archive, bool rot)
         {
-            cnt++;
             byte[] bs = GetImageBinary(p, rot);
+
+            cnt++;
             var entryname = cnt.ToString("D3") + " " + p.ZipEntryName + ".jpg";
             if (rot && p.IsRotated)
             {
@@ -326,89 +340,12 @@ namespace MyZipper
 
             if (img.Width > img.Height)
             {   // 横長
-#if falsesf
-                var hRatio = (float)_config.TargetScreenSize.Height / (float)img.Height;
-                float ratio = Math.Min(1.0f, hRatio);
-                var h = Math.Min((int)(img.Height * ratio), _config.TargetScreenSize.Height);
-
-                float scrnAsp = _config.GetCanvasScreenRatio();
-                var canvasWidth = (int)(h * scrnAsp);//_config.TargetScreenSize.Width;
-                var canvasHeight = Math.Min(_config.TargetScreenSize.Height, h);
-                var w = canvasWidth;//Math.Min((int)(img.Width * ratio), _config.TargetScreenSize.Width);
-
-                // dst
-                var x = (canvasWidth - w) / 2;
-                var y = (canvasHeight - h) / 2;
-                var dstRect = new Rectangle(x, y, w, h);
-                Console.Error.WriteLine("[LOG] dstRect={0}", dstRect);
-
-                // src
-                var srcW = (int)(w * ratio);
-                var srcH = (int)(h * ratio);
-                var srcX = 0;
-                var srcY = 0;
-                switch (splitIdx)
-                {
-                    case 1://right
-                        srcX = img.Width - srcW;
-                        break;
-                    case 3://left
-                        break;
-                    case 2://center
-                    default:
-                        srcX = (img.Width - srcW) / 2;
-                        break;
-                }
-                var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
-                Console.Error.WriteLine("[LOG] srcRect={0}", srcRect);
-
-                bmpCanvas = DrawImage(p, canvasWidth, canvasHeight, img, dstRect, srcRect, ratio);
-#endif
-                //var result = _coordinateCalculator.CalcTrimLS(img.Width, img.Height, splitIdx);
-                var result = _coordinateCalculator.CalcFitWidth(img.Width, img.Height);
+                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, splitIdx);
                 bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
             }
             else
             {   // 縦長
-#if false
-                var wRatio = (float)_config.TargetScreenSize.Width / (float)img.Width;
-                float ratio = Math.Min(1.0f, wRatio);
-                var canvasWidth = _config.TargetScreenSize.Width;
-                var canvasHeight = _config.TargetScreenSize.Height;
-
-                // dst
-                var w = Math.Min((int)(img.Width * ratio), _config.TargetScreenSize.Width);
-                var h = Math.Min((int)(img.Height * ratio), _config.TargetScreenSize.Height);
-                var x = (canvasWidth - w) / 2;
-                var y = (canvasHeight - h) / 2;
-                var dstRect = new Rectangle(x, y, w, h);
-                Console.Error.WriteLine("[LOG] dstRect={0}", dstRect);
-
-                // src
-                //var srcW = Math.Min(canvasWidth, (int)(img.Width * ratio));
-                //var srcH = Math.Min(canvasHeight, (int)(img.Height * ratio));
-                var srcW = (int)(w / ratio);
-                var srcH = (int)(h / ratio);
-                var srcX = 0;
-                var srcY = 0;
-                switch (splitIdx)
-                {
-                    case 1://top
-                        srcY = img.Height - srcH;
-                        break;
-                    case 3://bottom
-                        break;
-                    case 2://center
-                    default:
-                        srcY = (img.Height - srcH) / 2;
-                        break;
-                }
-                var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
-                Console.Error.WriteLine("[LOG] {0}", srcRect);
-
-                bmpCanvas = DrawImage(p, canvasWidth, canvasHeight, img, dstRect, srcRect, ratio);
-#endif
-                var result = _coordinateCalculator.CalcTrimPL(img.Width, img.Height, splitIdx);
+                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, splitIdx);
                 bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
             }
 
@@ -441,18 +378,19 @@ namespace MyZipper
             var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
             Graphics g = Graphics.FromImage(bmpCanvas);
 
-            var brush = Brushes.LightGray;
+            var brush = EMPTY_BG_BRUSH;
             g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+
+            var fsize = 20;
+            var fcolor = FONT_BRUSH;
+            var fnt = new Font("MS UI Gothic", fsize);
+            g.DrawString("end", fnt, fcolor, 0, 0);
             g.Dispose();
 
-            //var ms = new MemoryStream();
-            //bmpCanvas.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-            //byte[] bs = ms.ToArray();
             byte[] bs = GetBmpByteStream(bmpCanvas);
 
             AddZipEntry(archive, Config.GRAY_IMAGE_ENTRY_NAME, bs);
         }
-
 
         private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false)
         {
@@ -462,16 +400,21 @@ namespace MyZipper
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            var brush = Brushes.LightGray;
+            var brush = BG_BRUSH;
             g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+
+            var x = 0;
+            var y = 0;
+            if (thum)
+            {
+                y = (canvasHeight / 16);//少し上を開ける（
+            }
 
             var splitNoV = splitNo.col;
             var splitNoH = splitNo.row;
             var quotaWidth = canvasWidth / splitNoV;
-            var quotaHeight = canvasHeight / splitNoH;
+            var quotaHeight = (canvasHeight - y) / splitNoH;
 
-            var x = 0;
-            var y = 0;
             foreach (var p in picInfos)
             {
                 var img = Image.FromFile(p.Path);
@@ -482,55 +425,20 @@ namespace MyZipper
                     {
                         img.RotateFlip(RotateFlipType.Rotate270FlipNone);
                     }
-#if false
-                    var wRatio = (float)quotaWidth / (float)img.Width;
-                    var hRatio = (float)quotaHeight / (float)img.Height;
-                    var ratio = Math.Max(wRatio, hRatio);
-
-                    // dst
-                    var w = quotaWidth;
-                    var h = quotaHeight;
-                    if (canvasWidth - x < w)
-                    {
-                        y += quotaHeight;
-                        x = 0;
-                    }
-
-                    var dstRect = new Rectangle(x, y, w, h);
-
-                    // src
-                    var srcW = (int)(dstRect.Width / ratio);
-                    var srcH = (int)(dstRect.Height / ratio);
-                    var srcX = (img.Width - srcW) /2;
-                    var srcY = (img.Height - srcH) / 2;
-                    var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
-
-                    g.DrawImage(img, dstRect, srcRect, GraphicsUnit.Pixel);
-#endif
                     var result = _coordinateCalculator.CalcCrop(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
                     g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
                 }
                 else
                 {
-#if false
-                    var wRatio = (float)quotaWidth / (float)img.Width;
-                    var hRatio = (float)quotaHeight / (float)img.Height;
-                    var ratio = Math.Min(wRatio, hRatio);
-                    var w = (int)(img.Width * ratio);
-                    var h = (int)(img.Height * ratio);
-
-                    if (canvasWidth - x < w)
-                    {
-                        y += quotaHeight;
-                        x = 0;
+                    if (_config.isCrop)
+                    {   // はみ出る部分切り捨て
+                        var result = _coordinateCalculator.CalcCrop(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
+                        var yohakuW = (quotaWidth - result.DstRect.Width) / 2;
+                        var yohakuH = (quotaHeight - result.DstRect.Height) / 2;
+                        g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
+                        DrawPicInfo(p, g, img, result.DstRect.Width, result.DstRect.Height, result.DstRect.X - yohakuW, result.DstRect.Y - yohakuH, result.Ratio);
                     }
-                    var yohakuW = (quotaWidth - w) / 2;
-                    var yohakuH = (quotaHeight - h) / 2;
-                    g.DrawImage(img, x + yohakuW, y + yohakuH, w, h);
-                    DrawPicInfo(p, g, img, w, h, x, y, ratio);
-#endif
-                    bool tst = true;
-                    if (tst)
+                    else
                     {
                         var result = _coordinateCalculator.CalcFit(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
                         var yohakuW = (quotaWidth - result.DstRect.Width) / 2;
@@ -540,19 +448,11 @@ namespace MyZipper
                         g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
                         DrawPicInfo(p, g, img, result.DstRect.Width, result.DstRect.Height, result.DstRect.X - yohakuW, result.DstRect.Y - yohakuH, result.Ratio);
                     }
-                    else
-                    {   // はみ出る部分切り取り
-                        var result = _coordinateCalculator.CalcCrop(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
-                        g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
-                    }
                 }
                 x += quotaWidth;
             }
             g.Dispose();
 
-            //var ms = new MemoryStream();
-            //bmpCanvas.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-            //return ms.ToArray();
             return GetBmpByteStream(bmpCanvas);
         }
 
@@ -581,13 +481,11 @@ namespace MyZipper
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            //var brush = Brushes.LightGray;
-            var brush = Brushes.DarkGray;
+            var brush = BG_BRUSH;
             g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
 
             g.DrawImage(img, dstRect, srcRect, GraphicsUnit.Pixel);
 
-            //DrawPicInfo(p, g, img, dstRect.Width, dstRect.Height, dstRect.X, dstRect.Y, ratio);
             DrawPicInfo(p, g, img, dstRect.Width, dstRect.Height, 0, 0, ratio);
 
             g.Dispose();
@@ -600,9 +498,7 @@ namespace MyZipper
             if (_config.isPicSizeDraw)
             {
                 var fsize = 20;
-                //var fcolor = Brushes.Cyan;
-                //var fcolor = Brushes.Azure;
-                var fcolor = Brushes.Navy;
+                var fcolor = FONT_BRUSH;
                 var fnt = new Font("MS UI Gothic", fsize);
                 var drawY = y;
                 
@@ -614,11 +510,13 @@ namespace MyZipper
             }
         }
 
+#if false
+        ///ジャギで見にくいのでやめ。アンチエイリアス？
         private void DrawPicInfoPath(PicInfo p, Graphics g, Image img, int w, int h, int x, int y, float ratio)
         {
             if (_config.isPicSizeDraw)
             {
-                // 縁取り。ジャギで見にくいのでやめ。アンチエイリアス？
+                // 縁取り。
                 var fsize = 30;
                 var gp = new GraphicsPath();
                 var ff = new FontFamily("メイリオ");
@@ -647,6 +545,7 @@ namespace MyZipper
             g.FillPath(Brushes.White, gp);
             g.DrawPath(Pens.Black, gp);
         }
+#endif
 
         private void AddZipEntry(ZipArchive archive, string entryName, byte[] bs)
         {

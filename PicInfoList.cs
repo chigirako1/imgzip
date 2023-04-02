@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 
 namespace MyZipper
 {
@@ -77,7 +78,7 @@ namespace MyZipper
 
             var image = Image.FromFile(fi.FullName);
             PicSize = image.Size;
-            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", System.IO.Path.GetFileNameWithoutExtension(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
+            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
             ZipEntryName = ZipEntryNameOrig;
         }
 
@@ -257,8 +258,6 @@ namespace MyZipper
                 MaxHeight = Math.Max(pi.PicSize.Height, MaxHeight);
 
                 var r = pi.GetSplitScreenInfo();
-                // var r = pi.GetAspectRatio();
-
                 if (!dic.ContainsKey(r))
                 {
                     dic.Add(r, 0);
@@ -267,10 +266,19 @@ namespace MyZipper
             }
             Console.Error.WriteLine("-------------------");
             Console.Error.WriteLine("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight);
+            var min = Int32.MaxValue;
             foreach (var kvp in dic.OrderBy(c => c.Key))
             {
-                Console.Error.WriteLine("{0}:{1}", kvp.Key, kvp.Value);
+                var splitInf = kvp.Key;
+                var cnt = kvp.Value;
+                if (splitInf.row < splitInf.col)
+                {
+                    min = Math.Min(min, splitInf.col);
+                }
+
+                Console.Error.WriteLine("{0}:{1}", splitInf, cnt);
             }
+            _config.NumberOfSplitScreenHforLsImage = min;
             Console.Error.WriteLine("-------------------");
             _config = config;
         }

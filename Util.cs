@@ -1,20 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 
-namespace MyZipper.src
+namespace MyZipper
 {
-    internal class Util
+    public class Util
     {
+        static public string GetEntryName(string path)
+        {
+            var dirname = Path.GetDirectoryName(path);
+            dirname = Path.GetFileName(dirname);
+            var fn = Path.GetFileNameWithoutExtension(path);
+
+            return dirname + "-" + fn;
+        }
+
         static public string GetTitle(string path)
         {
             var dirname = Path.GetDirectoryName(path);
+            dirname = Path.GetFileName(dirname);
             var fn = Path.GetFileNameWithoutExtension(path);
 
-            return Path.Combine(Path.GetFileName(dirname), fn);
+            return Path.Combine(dirname, fn);
         }
 
         static public string AppendPostfixToFilename(string origName, string appdStr)

@@ -49,7 +49,7 @@ namespace MyZipper
         public int NumberOfSplitScreenHforPlImage{ get; private set; }
         //横長画像用の分割数
         public int NumberOfSplitScreenVforLsImage { get; private set; }
-        public int NumberOfSplitScreenHforLsImage { get; private set; }
+        public int NumberOfSplitScreenHforLsImage { get; set; }
 
 
 
@@ -68,6 +68,8 @@ namespace MyZipper
         public bool IsForce2P { get; private set; }
         public bool isAppendIdxCover { get; private set; }
         public bool isSplitLongImage { get; private set; }
+        public bool NoComposite { get; private set; }
+        public bool isCrop { get; private set; }
 
         public int IdxOutThreshold { get; private set; }
 
@@ -111,15 +113,6 @@ namespace MyZipper
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
             OutputFileDivedeThreshold = 0;
-            isSeparateOutput = false;
-            if (Mode == Mode.Auto)
-            {
-                isRotatePlImage = true;
-            }
-            else
-            {
-                isRotatePlImage = true;// false;
-            }
             NumberOfSplitScreenVforPlImage = 2;
             NumberOfSplitScreenHforPlImage = 2;
             NumberOfSplitScreenVforLsImage = 1;
@@ -129,9 +122,13 @@ namespace MyZipper
 
             Since = null;
 
+            isSeparateOutput = false;
+            isRotatePlImage = false;
             isPicSizeDraw = false;
             IsForce2P = false;
-            isRotateAlt = true;
+            isRotateAlt = false;
+            NoComposite = false;
+            isCrop = false;
 
             IdxOutThreshold = 5;
         }
@@ -142,6 +139,9 @@ namespace MyZipper
             {
                 switch (c)
                 {
+                    case '1':
+                        NoComposite = true;
+                        break;
                     case '2':
                         IsForce2P = true;
                         break;
@@ -150,6 +150,9 @@ namespace MyZipper
                     case 'c':
                         isAppendIdxCover = true;
                         break;
+                    case 'C':
+                        isCrop = true;
+                        break;
                     case 'i':
                         isPicSizeDraw = true;
                         break;
@@ -157,7 +160,7 @@ namespace MyZipper
                         isRotatePlImage = true;
                         break;
                     case 'R':
-                        isRotateAlt = false;
+                        isRotateAlt = true;
                         break;
                     case 's':
                         isSplitLongImage = true;

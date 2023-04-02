@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MyZipper
 {
@@ -76,10 +72,13 @@ namespace MyZipper
             {
             }
 
+            var srcX = 0;
+            var srcY = 0;
+
             CalcResult result;
             result.Canvas = new Size(canvasWidth, canvasHeight);
             result.DstRect = new Rectangle(x, y, w, h);
-            result.SrcRect = new Rectangle(0, 0, imgWidth, imgHeight); 
+            result.SrcRect = new Rectangle(srcX, srcY, imgWidth, imgHeight);
             result.Ratio = ratio;
             return result;
         }
@@ -102,32 +101,6 @@ namespace MyZipper
             result.Canvas = new Size(canvasWidth, canvasHeight);
             result.DstRect = new Rectangle(x, y, w, h);
             result.SrcRect = new Rectangle(0, 0, imgWidth, imgHeight);
-            result.Ratio = ratio;
-            return result;
-        }
-
-        public CalcResult CalcFitWidth(int imgWidth, int imgHeight)
-        {
-            var w = Math.Min(imgWidth, TargetScreenSize.Width);
-            var ratio = 1f;
-            var h = Math.Min(imgHeight, TargetScreenSize.Height);
-
-            var canvasWidth = w;
-            var canvasHeight = (int)(canvasWidth / GetCanvasScreenRatio());
-
-            var x = (canvasWidth - w) / 2;
-            var y = (canvasHeight - h) / 2;
-
-            // src
-            var srcW = (int)(w * ratio);
-            var srcH = (int)(h * ratio);
-            var srcX = (imgWidth - srcW) / 2;
-            var srcY = 0;
-
-            CalcResult result;
-            result.Canvas = new Size(canvasWidth, canvasHeight);
-            result.DstRect = new Rectangle(x, y, w, h);
-            result.SrcRect = new Rectangle(srcX, srcY, srcW, srcH);
             result.Ratio = ratio;
             return result;
         }
@@ -164,90 +137,83 @@ namespace MyZipper
             return result;
         }
 
-        public CalcResult CalcTrimLS(int imgWidth, int imgHeight, int splitIdx)
-        {   // 横長画像向け。横を切り取る
-            var hRatio = (float)TargetScreenSize.Height / (float)imgHeight;
-            var ratio = Math.Min(1.0f, hRatio);
-
-            var h = Math.Min((int)(imgHeight * ratio), TargetScreenSize.Height);
-            var scrnAsp = GetCanvasScreenRatio();
-            var canvasWidth = (int)(h * scrnAsp);
-            var canvasHeight = Math.Min(TargetScreenSize.Height, h);
-            var w = canvasWidth;
-
-            // dst
-            var x = (canvasWidth - w) / 2;
-            var y = (canvasHeight - h) / 2;
-            var dstRect = new Rectangle(x, y, w, h);
-
-            // src
-            var srcW = (int)(w * ratio);
-            var srcH = (int)(h * ratio);
-            var srcX = 0;
-            var srcY = 0;
-            switch (splitIdx)
-            {
-                case 1://right
-                    srcX = imgWidth - srcW;
-                    break;
-                case 3://left
-                    break;
-                case 2://center
-                default:
-                    srcX = (imgWidth - srcW) / 2;
-                    break;
-            }
-            var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
-
-            CalcResult result;
-            result.Canvas = new Size(canvasWidth, canvasHeight);
-            result.DstRect = dstRect;
-            result.SrcRect = srcRect;
-            result.Ratio = ratio;
-            return result;
-        }
-
-        public CalcResult CalcTrimPL(int imgWidth, int imgHeight, int splitIdx)
-        {   // 縦長。縦を切り取る
+        public CalcResult CalcCrop(int imgWidth, int imgHeight, int splitIdx)
+        {
             var wRatio = (float)TargetScreenSize.Width / (float)imgWidth;
-            var ratio = Math.Min(1.0f, wRatio);
+            var hRatio = (float)TargetScreenSize.Height / (float)imgHeight;
 
-            var w = Math.Min((int)(imgWidth * ratio), TargetScreenSize.Width);
-            var scrnAsp = GetCanvasScreenRatio();
-            var canvasHeight = (int)(w / scrnAsp);
-            var canvasWidth =  Math.Min(TargetScreenSize.Width, w);
-            var h = canvasHeight;
+            float ratio;
+            Rectangle dstRect;
+            Rectangle srcRect;
+            var canvasWidth = TargetScreenSize.Width;
+            var canvasHeight = TargetScreenSize.Height;
+            if (wRatio > hRatio)
+            {   //縦長画像。横幅に合わせる（上下がはみだす）。
 
-            // dst
-            var x = (canvasWidth - w) / 2;
-            var y = (canvasHeight - h) / 2;
-            var dstRect = new Rectangle(x, y, w, h);
+                 ratio = Math.Min(wRatio, 1.0f);
 
-            // src
-            //var srcW = (int)(w * ratio);
-            //var srcH = (int)(h * ratio);
-            var srcW = (int)(w / ratio);
-            var srcH = (int)(h / ratio);
-            var srcX = 0;
-            var srcY = 0;
-            switch (splitIdx)
-            {
-                case 1://top
-                    srcY = imgHeight - srcH;
-                    break;
-                case 3://bottom
-                    break;
-                case 2://center
-                default:
-                    srcY = Math.Abs((imgHeight - srcH) / 2);
-                    break;
+                // dst
+                var w = (int)(imgWidth * ratio);
+                var h = Math.Min((int)(imgHeight * ratio), canvasHeight);
+                var x = (canvasWidth - w) / 2;
+                var y = (canvasHeight - h) / 2;
+                dstRect = new Rectangle(x, y, w, h);
+
+                // src
+                var srcW = (int)(w / ratio);
+                var srcH = (int)(h / ratio);
+                var srcX = 0;
+                var srcY = 0;
+                switch (splitIdx)
+                {
+                    case 1://top
+                        break;
+                    case 3://bottom
+                        srcY = imgHeight - srcH;
+                        break;
+                    case 2://center
+                    default:
+                        srcY = Math.Abs((imgHeight - srcH) / 2);
+                        break;
+                }
+                srcRect = new Rectangle(srcX, srcY, srcW, srcH);
             }
-            var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
+            else
+            {   // 横長画像。
+                ratio = Math.Min(hRatio, 1.0f); ;
+
+                // dst
+                var w = Math.Min((int)(imgWidth * ratio), canvasWidth);
+                var h = (int)(imgHeight * ratio);
+                var x = (canvasWidth - w) / 2;
+                var y = (canvasHeight - h) / 2;
+                dstRect = new Rectangle(x, y, w, h);
+
+                // src
+                var srcW = (int)(w / ratio);
+                var srcH = (int)(h / ratio);
+                var srcX = 0;
+                var srcY = 0;
+                switch (splitIdx)
+                {
+                    case 1://right
+                        srcX = imgWidth - srcW;
+                        break;
+                    case 3://left
+                        break;
+                    case 2://center
+                    default:
+                        srcX = (imgWidth - srcW) / 2;
+                        break;
+                }
+                srcRect = new Rectangle(srcX, srcY, srcW, srcH);
+            }
+
 
             CalcResult result;
             result.Canvas = new Size(canvasWidth, canvasHeight);
-            result.DstRect = dstRect;
             result.SrcRect = srcRect;
+            result.DstRect = dstRect;
             result.Ratio = ratio;
             return result;
         }
