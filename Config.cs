@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Text.RegularExpressions;
 
 namespace MyZipper
 {
@@ -71,13 +72,15 @@ namespace MyZipper
         public bool NoComposite { get; private set; }
         public bool isCrop { get; private set; }
 
+        public bool LsCompositeLs { get; private set; }
+
         public int IdxOutThreshold { get; private set; }
 
         public Config(string[] args)
         {
             if (args.Length < 3)
             {
-                Console.Error.WriteLine("引数の数が足りません。Usage: myzipper <options> <出力パス> <入力パス> <YYYY/MM/DD>");
+                Console.Error.WriteLine("引数の数が足りません。Usage: myzipper <options> <出力パス> <入力パス> [since=<YYYY/MM/DD>]");
                 Environment.Exit(1);
             }
 
@@ -88,19 +91,7 @@ namespace MyZipper
             init(inPath, outPath, mode);
 
             SetOptions(args[0]);
-
-            if (args.Length >= 4)
-            {
-                try
-                {
-                    Since = DateTime.ParseExact(args[3], "yyyy/MM/dd", null);
-                }
-                catch (FormatException ex)
-                {
-                    Console.Error.WriteLine("E:オプションが不正です。{}", ex);
-                    Environment.Exit(1);
-                }
-            }
+            ParseOptions(args);
         }
 
 
@@ -129,6 +120,7 @@ namespace MyZipper
             isRotateAlt = false;
             NoComposite = false;
             isCrop = false;
+            LsCompositeLs = false;
 
             IdxOutThreshold = 5;
         }
@@ -173,15 +165,62 @@ namespace MyZipper
             }
         }
 
+        private void ParseOptions(string[] args)
+        {
+            if (args.Length < 4)
+            {
+                return;
+            }
+
+            string[] tmpargs = new string[args.Length - 3];
+            Array.Copy(args, 3, tmpargs, 0, tmpargs.Length);
+
+            foreach (var arg in tmpargs)
+            {
+#if false
+                Regex r = new Regex(@"since=(\d\d\d\d/\d\d/\d\d)", RegexOptions.IgnoreCase);
+                Match m = r.Match(arg);
+                if (m.Success)
+                {
+                    var date = m.Groups[1].Value;
+                    try
+                    {
+                        Since = DateTime.ParseExact(date, "yyyy/MM/dd", null);
+                        Console.Error.WriteLine("since={0}", Since);
+                    }
+                    catch (FormatException ex)
+                    {
+                        Console.Error.WriteLine("E:オプションが不正です。{}", ex);
+                        Environment.Exit(1);
+                    }
+                }
+#endif
+                var opt = arg.Split('=');
+                //var prm = 
+                switch (opt[0])
+                {
+                    case "since":
+                        try
+                        {
+                            Since = DateTime.ParseExact(opt[1], "yyyy/MM/dd", null);
+                            Console.Error.WriteLine("since={0}", Since);
+                        }
+                        catch (FormatException ex)
+                        {
+                            Console.Error.WriteLine("E:オプションが不正です。{}", ex);
+                            Environment.Exit(1);
+                        }
+                        break;
+                    default:
+                        Console.Error.WriteLine();
+                        break;
+                }
+            }
+        }
+
         public float GetCanvasScreenRatio()
         {
             return (float)TargetScreenSize.Width / (float)TargetScreenSize.Height;
-        }
-
-        public bool IsYohakuAddtion(float aspRatio)
-        {
-            return true;
-            //return (aspRatio < 0.55 || aspRatio > 2.0);
         }
 
         public bool RotatePredicate(Size imgSize)
@@ -199,8 +238,6 @@ namespace MyZipper
 
             if (TargetScreenSize.Width <= TargetScreenSize.Height)
             {
-
-                //return isRotatePlImage && (imgSize.Width > imgSize.Height) && (imgSize.Width > TargetScreenSize.Width);
                 return (imgSize.Width > imgSize.Height) && (imgSize.Width >= TargetScreenSize.Width);
             }
             else

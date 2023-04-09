@@ -55,7 +55,7 @@ namespace MyZipper
 
             var canvasWidth = w;
             var canvasHeight = h;
-            float scrnAsp = GetCanvasScreenRatio();// (float)TargetScreenSize.Width / (float)TargetScreenSize.Height;
+            float scrnAsp = GetCanvasScreenRatio();
             float picRatio = (float)w / (float)h;
             // キャンバスサイズを表示領域のアスペクト比に合わせる
             if (scrnAsp < picRatio)
@@ -137,7 +137,7 @@ namespace MyZipper
             return result;
         }
 
-        public CalcResult CalcCrop(int imgWidth, int imgHeight, int splitIdx)
+        public CalcResult CalcCrop(int imgWidth, int imgHeight, int nume, int denomi)
         {
             var wRatio = (float)TargetScreenSize.Width / (float)imgWidth;
             var hRatio = (float)TargetScreenSize.Height / (float)imgHeight;
@@ -163,18 +163,19 @@ namespace MyZipper
                 var srcW = (int)(w / ratio);
                 var srcH = (int)(h / ratio);
                 var srcX = 0;
-                var srcY = 0;
-                switch (splitIdx)
-                {
-                    case 1://top
-                        break;
-                    case 3://bottom
-                        srcY = imgHeight - srcH;
-                        break;
-                    case 2://center
-                    default:
-                        srcY = Math.Abs((imgHeight - srcH) / 2);
-                        break;
+                int srcY;
+                if (nume == 1)
+                {   //top
+                    srcY = 0;
+                }
+                else if (nume == denomi)
+                {   // bottom
+                    srcY = imgHeight - srcH;
+                }
+                else
+                {   // middle
+                    //srcY = Math.Abs((imgHeight - srcH) / 2);
+                    srcY = imgHeight - (imgHeight / denomi) * nume;
                 }
                 srcRect = new Rectangle(srcX, srcY, srcW, srcH);
             }
@@ -192,19 +193,19 @@ namespace MyZipper
                 // src
                 var srcW = (int)(w / ratio);
                 var srcH = (int)(h / ratio);
-                var srcX = 0;
+                int srcX;
                 var srcY = 0;
-                switch (splitIdx)
-                {
-                    case 1://right
-                        srcX = imgWidth - srcW;
-                        break;
-                    case 3://left
-                        break;
-                    case 2://center
-                    default:
-                        srcX = (imgWidth - srcW) / 2;
-                        break;
+                if (nume == 1)
+                {   // right
+                    srcX = imgWidth - srcW;
+                }
+                else if (nume == denomi)
+                {   // bottom
+                    srcX = 0;
+                }
+                else
+                {   // middle
+                    srcX = imgWidth - (imgWidth / denomi) * nume;
                 }
                 srcRect = new Rectangle(srcX, srcY, srcW, srcH);
             }

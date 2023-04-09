@@ -1,5 +1,4 @@
-﻿using MyZipper.src;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -89,7 +88,6 @@ namespace MyZipper
         // --------------------------------------------------------------------
         public void OutputCombine(PicInfoList piclist)
         {
-            //var zipname = AppendPostfixToFilename(_config.OutputPath, "[" + piclist.PicInfos.Count.ToString() + "]");
             var zipname = _config.OutputPath;
 
 #if DEBUG
@@ -114,15 +112,15 @@ namespace MyZipper
         private void OutputThumbnailListToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
             SplitScreenNumber splitNo;
-            splitNo.col = Math.Min(10, (int)Math.Sqrt(piclist.PicInfos.Count));
-            splitNo.row = Math.Min(10, (int)Math.Sqrt(piclist.PicInfos.Count));
-            if (splitNo.col * splitNo.row < piclist.PicInfos.Count)
+            splitNo.Col = Math.Min(10, (int)Math.Sqrt(piclist.PicInfos.Count));
+            splitNo.Row = Math.Min(10, (int)Math.Sqrt(piclist.PicInfos.Count));
+            if (splitNo.Col * splitNo.Row < piclist.PicInfos.Count)
             {
-                splitNo.row++;
+                splitNo.Row++;
             }
-            if (splitNo.col * splitNo.row < piclist.PicInfos.Count)
+            if (splitNo.Col * splitNo.Row < piclist.PicInfos.Count)
             {
-                splitNo.col++;
+                splitNo.Col++;
             }
 
             byte[] bs = GetCombineImage(piclist.PicInfos, splitNo, true);
@@ -159,6 +157,22 @@ namespace MyZipper
                         }
                     }
                 }
+                else if (_config.LsCompositeLs && p.PicSize.Width <= 640 && p.PicSize.Height <= 480)
+                {
+                    if (_config.NoComposite || p.IsOutputAlone(_config.TargetScreenSize, true))
+                    {  // 一枚絵として出力
+                        MakeImageAndAddZipEntry(ref cnt, p, archive);
+                    }
+                    else
+                    {
+                        lsPicInfos.Add(p);
+                        if (lsPicInfos.Count >= 3 * 2)
+                        {
+                            entryname = MakeEntryName(ref cnt, lsPicInfos, "yoko");
+                            OutCombineImageLS(lsPicInfos, archive, entryname, _config.LsCompositeLs);
+                        }
+                    }
+                }
                 else
                 {   // 横長
 
@@ -183,11 +197,12 @@ namespace MyZipper
                             OutCombineImageLS(lsPicInfos, archive, entryname);
                             heightSum = 0;
                         }
-
+#if false
                         if (p.PicSize.Width >= 640 && p.PicSize.Height>= 480)
                         {
-                            //MakeImageAndAddZipEntry(ref cnt, p, archive);
+                            MakeImageAndAddZipEntry(ref cnt, p, archive);
                         }
+#endif
                     }
                 }
             }
@@ -209,7 +224,7 @@ namespace MyZipper
             else if (lsPicInfos.Count >= 2)
             {
                 entryname = MakeEntryName(ref cnt, lsPicInfos, "yoko");
-                OutCombineImageLS(lsPicInfos, archive, entryname);
+                OutCombineImageLS(lsPicInfos, archive, entryname, false);
             }
 
             if (_config.IsForce2P && cnt <= 1)
@@ -231,8 +246,8 @@ namespace MyZipper
             int splitNoV = Math.Min(_config.NumberOfSplitScreenVforPlImage, picInfos.Count);
             int splitNoH = Math.Min(_config.NumberOfSplitScreenHforPlImage, picInfos.Count);
             SplitScreenNumber splitNo;
-            splitNo.col = splitNoV;
-            splitNo.row = splitNoH;
+            splitNo.Col = splitNoV;
+            splitNo.Row = splitNoH;
 
             byte[] bs = GetCombineImage(picInfos, splitNo);
 
@@ -241,15 +256,23 @@ namespace MyZipper
             picInfos.Clear();
         }
 
-        private void OutCombineImageLS(List<PicInfo> picInfos, ZipArchive archive, string entryname)
+        private void OutCombineImageLS(List<PicInfo> picInfos, ZipArchive archive, string entryname, bool ls = false)
         {
             int splitNoV = Math.Min(_config.NumberOfSplitScreenVforLsImage, picInfos.Count);
             int splitNoH = Math.Min(_config.NumberOfSplitScreenHforLsImage, picInfos.Count);
             SplitScreenNumber splitNo;
-            splitNo.col = splitNoV;
-            splitNo.row = splitNoH;
+            if (ls)
+            {
+                splitNo.Col = 3;
+                splitNo.Row = 2;
+            }
+            else
+            {
+                splitNo.Col = splitNoV;
+                splitNo.Row = splitNoH;
+            }
 
-            byte[] bs = GetCombineImage(picInfos, splitNo);
+            byte[] bs = GetCombineImage(picInfos, splitNo, false, ls);
 
             AddZipEntry(archive, entryname, bs);
 
@@ -272,38 +295,20 @@ namespace MyZipper
             // 細長い画像を分割して保存する
             if (_config.isSplitLongImage)
             {
+                int denomi;
                 if (p.PicSize.Width > p.PicSize.Height)
                 {   // 横長
-                    if (p.PicSize.Width > _config.TargetScreenSize.Height * 2)
-                    {   // 細長いので3分割
-                        for (var splitIdx = 1; splitIdx <= 3; splitIdx++)
-                        {
-                            GetSplitedImageBinary(ref cnt, p, archive, splitIdx);
-                        }
-                    }
-                    else
-                    {   // 中央部分だけ
-                        GetSplitedImageBinary(ref cnt, p, archive, 2);
-                    }
+                    denomi = (int)Math.Ceiling((double)p.PicSize.Width / (double)_config.TargetScreenSize.Width);
                 }
                 else
                 {
-                    if (p.PicSize.Height> _config.TargetScreenSize.Height * 2)
-                    {   // 細長いので3分割
-                        for (var splitIdx = 1; splitIdx <= 3; splitIdx++)
-                        {
-                            GetSplitedImageBinary(ref cnt, p, archive, splitIdx);
-                        }
-                    }
-                    else
-                    {   // 中央部分だけ
-                        var picRatio = p.GetAspectRatio();
-                        var scrnRatio = _config.GetCanvasScreenRatio();
-                        Console.Error.WriteLine("pic={0}[{1}]\tscrn={2}", p.GetAspectRatioStr(), picRatio, scrnRatio);
-                        if (picRatio < scrnRatio * 0.9 || scrnRatio * 1.1 < picRatio)
-                        {
-                            GetSplitedImageBinary(ref cnt, p, archive, 2);
-                        }
+                    denomi = (int)Math.Ceiling((double)p.PicSize.Height / (double)_config.TargetScreenSize.Height);
+                }
+                if (denomi > 2)
+                {
+                    for (var nume = 1; nume <= denomi; nume++)
+                    {
+                        AddSplitedImage(ref cnt, p, archive, nume, denomi);
                     }
                 }
             }
@@ -323,41 +328,24 @@ namespace MyZipper
             p.IsDone = true;
         }
 
-        private void GetSplitedImageBinary(ref int cnt, PicInfo p, ZipArchive archive, int splitIdx)
+        private void AddSplitedImage(ref int cnt, PicInfo p, ZipArchive archive, int nume, int denomi)
         {
-            var img = Image.FromFile(p.Path);
+            //var img = Image.FromFile(p.Path);
+            var img = p.GetImage();
 
-            var bs = TrimImage(p, img, splitIdx);
+            var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, nume, denomi);
+            Bitmap bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
+            var bs = GetBmpByteStream(bmpCanvas);
 
             cnt++;
-            var entryname = cnt.ToString("D3") + "-" + splitIdx.ToString("D1") + " " + p.ZipEntryNameOrig + ".jpg";
+            var entryname = cnt.ToString("D3") + "-" + nume.ToString("D1") + " " + p.ZipEntryNameOrig + ".jpg";
             AddZipEntry(archive, entryname, bs);
-        }
-
-        private byte[] TrimImage(PicInfo p, Image img, int splitIdx)
-        {
-            Bitmap bmpCanvas;
-
-            if (img.Width > img.Height)
-            {   // 横長
-                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, splitIdx);
-                bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
-            }
-            else
-            {   // 縦長
-                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, splitIdx);
-                bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
-            }
-
-            //var ms = new MemoryStream();
-            //bmpCanvas.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-            //return ms.ToArray();
-            return GetBmpByteStream(bmpCanvas);
         }
 
         private byte[] GetImageBinary(PicInfo p, bool rot)
         {
-            var img = Image.FromFile(p.Path);
+            //var img = Image.FromFile(p.Path);
+            var img = p.GetImage();
 
             if (rot && _config.RotatePredicate(img.Size))
             {
@@ -392,10 +380,20 @@ namespace MyZipper
             AddZipEntry(archive, Config.GRAY_IMAGE_ENTRY_NAME, bs);
         }
 
-        private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false)
+        private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false, bool ls = false)
         {
-            var canvasWidth = _config.TargetScreenSize.Width;
-            var canvasHeight = _config.TargetScreenSize.Height;
+            int canvasWidth;
+            int canvasHeight;
+            if (ls)
+            {   // 縦と横を入れ替える
+                canvasWidth = _config.TargetScreenSize.Height; 
+                canvasHeight = _config.TargetScreenSize.Width;
+            }
+            else
+            {
+                canvasWidth = _config.TargetScreenSize.Width;
+                canvasHeight = _config.TargetScreenSize.Height;
+            }
             var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
@@ -410,14 +408,16 @@ namespace MyZipper
                 y = (canvasHeight / 16);//少し上を開ける（
             }
 
-            var splitNoV = splitNo.col;
-            var splitNoH = splitNo.row;
+            var splitNoV = splitNo.Col;
+            var splitNoH = splitNo.Row;
             var quotaWidth = canvasWidth / splitNoV;
             var quotaHeight = (canvasHeight - y) / splitNoH;
 
             foreach (var p in picInfos)
             {
-                var img = Image.FromFile(p.Path);
+                //var img = Image.FromFile(p.Path);
+                var img = p.GetImage();
+
 
                 if (thum)
                 {
@@ -453,6 +453,11 @@ namespace MyZipper
             }
             g.Dispose();
 
+            if (ls)
+            {
+                bmpCanvas.RotateFlip(RotateFlipType.Rotate270FlipNone);
+            }
+         
             return GetBmpByteStream(bmpCanvas);
         }
 
@@ -467,9 +472,6 @@ namespace MyZipper
             }
             p.ZipEntryName += string.Format("({0}x{1})", result.Canvas.Width, result.Canvas.Height);
 
-            //var ms = new MemoryStream();
-            //bmpCanvas.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-            //return ms.ToArray();
             return GetBmpByteStream(bmpCanvas);
         }
 

@@ -4,34 +4,35 @@ using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Runtime.InteropServices.ComTypes;
+using System.Windows.Media.Imaging;
+using static System.Net.WebRequestMethods;
 
 namespace MyZipper
 {
     internal struct SplitScreenNumber : IComparable
     {
-        public int col;
-        public int row;
+        public int Col;
+        public int Row;
 
         public int CompareTo(object obj)
         {
             if (obj == null) throw new ArgumentNullException();
             if (!(obj is SplitScreenNumber other)) throw new ArgumentException();
 
-            //var other = (SplitScreenNumber)obj;
-
-            if (this.col < other.col)
+            if (Col < other.Col)
             {
                 return -1;
             }
-            else if (this.col == other.col)
+            else if (Col == other.Col)
             {
-                if ((this.row < other.row))
+                if (Row < other.Row)
                 {
                     return -1;
                 }
-                else if((this.row == other.row))
+                else if(Row == other.Row)
                 {
                     return 0;
                 }
@@ -48,38 +49,66 @@ namespace MyZipper
 
         public override string ToString()
         {
-            return string.Format("<{0}:{1}>", col, row);
+            return string.Format("<{0}:{1}>", Col, Row);
         }
     }
 
     internal class PicInfo
     {
         private Config _config;
+        private bool IsZipEntry;
 
-        public int Number { get; }
+        public int Number { get; private set; }
 
-        public string Path { get; }
-        public long FileSize { get; }
-        public Size PicSize { get; }
+        public string Path { get; private set; }
+        public long FileSize { get; private set; }
+        public Size PicSize { get; private set; }
         public bool IsDone { get; set; }
         public string ZipEntryName { get; set; }
         public string ZipEntryNameOrig { get; set; }
         public bool IsRotated{ get; set; }
 
-
         public PicInfo(int no, FileInfo fi, Config config)
+        {
+            var image = Image.FromFile(fi.FullName);
+            PicSize = image.Size;
+            constructor(no, fi.FullName, fi.Length, config);
+        }
+
+        public PicInfo(int no, ZipArchiveEntry ent, Config config)
+        {
+            IsZipEntry = true;
+            var image = Image.FromStream(ent.Open());
+            PicSize = image.Size;
+            constructor(no, ent.FullName, ent.Length, config);
+        }
+
+        private void constructor(int no, string fullname, long length, Config config)
         {
             Number = no;
             _config = config;
 
-            
-            Path = fi.FullName;
-            FileSize = fi.Length;
+            Path = fullname;
+            FileSize = length;
 
-            var image = Image.FromFile(fi.FullName);
-            PicSize = image.Size;
             ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
             ZipEntryName = ZipEntryNameOrig;
+        }
+
+        public Image GetImage()
+        {
+            if (IsZipEntry)
+            {
+                using (var archive = ZipFile.OpenRead(_config.Inputpath))
+                {
+                    var ent = archive.GetEntry(Path);
+                    return Image.FromStream(ent.Open());
+                }
+            }
+            else
+            {
+                return Image.FromFile(Path);
+            }
         }
 
         public float GetAspectRatio()
@@ -127,7 +156,6 @@ namespace MyZipper
             }
         }
 
-
         public SplitScreenNumber GetSplitScreenInfo()
         {
             double per = _config.allowPer;
@@ -138,13 +166,13 @@ namespace MyZipper
                 PicSize.Width < PicSize.Height
                 )
             {
-                sn.col = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
-                sn.row = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
+                sn.Col = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
+                sn.Row = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
             }
             else
             {
-                sn.row = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
-                sn.col = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
+                sn.Row = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
+                sn.Col = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
             }
 
             return sn;
@@ -173,9 +201,6 @@ namespace MyZipper
             }
             else
             {
-                /*var allowPer = _config.allowPer;
-                bool hz = w  >= (screenSize.Width * allowPer);
-                bool vt = h >= (screenSize.Height * allowPer);*/
                 bool hz = w * _config.allowPer > (screenSize.Width / 2) ;
                 bool vt = h * _config.allowPer > (screenSize.Height / 2);
                 return hz || vt;
@@ -201,69 +226,158 @@ namespace MyZipper
     internal class PicInfoList
     {
         public List<PicInfo> PicInfos { get; }
-        private Config _config;
+        private Config Config;
 
-
-        public int MinWidth { get; }
-        public int MinHeight { get; }
-        public int MaxWidth { get; }
-        public int MaxHeight { get; }
+        public int MinWidth { get; private set; }
+        public int MinHeight { get; private set; }
+        public int MaxWidth { get; private set; }
+        public int MaxHeight { get; private set; }
 
         public PicInfoList(string path, Config config)
         {
             PicInfos = new List<PicInfo>();
-            _config = config;
+            Config = config;
 
+            if (System.IO.File.GetAttributes(path).HasFlag(FileAttributes.Directory))
+            {
+                List<String> filelist = GetFileList(path);
+                SetPicInfos(filelist);
+            }
+            else
+            {// zipとして扱う
+
+                // 一時ディレクトリに展開して処理するのはなんかいや
+                List<String> filelist = GetFileListFromZip(path);
+                SetPicInfos(filelist, true);
+            }
+        }
+
+        private List<String> GetFileList(string path)
+        {
             var files = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories).OrderBy(f => f)
                 .Where(s =>
-                    s.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase)
-                    ||
-                    s.EndsWith(".jpeg", StringComparison.CurrentCultureIgnoreCase)
-                    ||
-                    s.EndsWith(".png", StringComparison.CurrentCultureIgnoreCase)
-                    ||
+                    s.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase) ||
+                    s.EndsWith(".jpeg", StringComparison.CurrentCultureIgnoreCase) ||
+                    s.EndsWith(".png", StringComparison.CurrentCultureIgnoreCase) ||
                     s.EndsWith(".gif", StringComparison.CurrentCultureIgnoreCase)
                     );
 
             var filelist = new List<string>(files);
             filelist.Sort(new NaturalStringComparer());
 
+            return filelist;
+        }
+
+        private List<String> GetFileListFromZip(string path)
+        {
+            List<string> filelist = new List<string>();
+
+            using (var archive = ZipFile.OpenRead(path))
+            {
+                foreach (var e in archive.Entries)
+                {
+                    //filelist.Add(e.FullName);
+                    //Console.WriteLine("名前       : {0}", e.Name);
+                    //Console.WriteLine("フルパス   : {0}", e.FullName);
+                    //Console.WriteLine("サイズ     : {0}", e.Length);
+                    //Console.WriteLine("圧縮サイズ : {0}", e.CompressedLength);
+                    //Console.WriteLine("更新日時   : {0}", e.LastWriteTime);
+                }
+
+                var files = archive.Entries.OrderBy(e => e.FullName).
+                    Where(e =>
+                        e.Name.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                        e.Name.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                        e.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                        e.Name.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
+                );
+
+                files.ToList().ForEach(f => filelist.Add(f.FullName));
+                filelist.Sort(new NaturalStringComparer());
+            }
+
+            return filelist;
+        }
+
+
+        private void SetPicInfos(List<String> filelist, bool zip = false)
+        {
             MinWidth = Int32.MaxValue;
             MinHeight = Int32.MaxValue;
-
             var dic = new Dictionary<SplitScreenNumber, int>();
 
+            if (zip)
+            {
+                SetPicInfosFromZip(filelist, dic);
+            }
+            else
+            {
+                SetPicInfosFromDir(filelist, dic);
+            }
+        }
+
+        private void SetPicInfosFromDir(List<String> filelist, Dictionary<SplitScreenNumber, int> dic)
+        { 
             foreach (var f in filelist.Select((it, idx) => (it, idx)))
             {
                 var fi = new FileInfo(f.it);
 
-                if (_config.Since != null)
+                if (Config.Since != null)
                 {
-                    if (_config.Since > fi.CreationTime)
+                    if (Config.Since > fi.CreationTime)
                     {
                         Console.WriteLine("生成日時={0}:処理対象外のファイルです。\"{1}\"", fi.CreationTime, fi.FullName);
                         continue;
                     }
                 }
-
-                var pi = new PicInfo(f.idx + 1, fi, _config);
+                var pi = new PicInfo(f.idx + 1, fi, Config);
                 pi.PrintInfo(f.idx + 1);
                 PicInfos.Add(pi);
 
-                MinWidth = Math.Min(pi.PicSize.Width, MinWidth);
-                MinHeight = Math.Min(pi.PicSize.Height, MinHeight);
-
-                //max
-                MaxWidth = Math.Max(pi.PicSize.Width, MaxWidth);
-                MaxHeight = Math.Max(pi.PicSize.Height, MaxHeight);
-
-                var r = pi.GetSplitScreenInfo();
-                if (!dic.ContainsKey(r))
-                {
-                    dic.Add(r, 0);
-                }
-                dic[r]++;
+                SetPicInfosSub(pi, dic);
             }
+
+            SetPicInfosStat(dic);
+        }
+
+        private void SetPicInfosFromZip(List<String> filelist, Dictionary<SplitScreenNumber, int> dic)
+        {
+            using (var archive = ZipFile.OpenRead(Config.Inputpath))
+            {
+                foreach (var f in filelist.Select((it, idx) => (it, idx)))
+                {
+                    var ent = archive.GetEntry(f.it);
+
+                    var pi = new PicInfo(f.idx + 1, ent, Config);
+                    pi.PrintInfo(f.idx + 1);
+                    PicInfos.Add(pi);
+
+                    SetPicInfosSub(pi, dic);
+                }
+            }
+
+            SetPicInfosStat(dic);
+        }
+
+        private void SetPicInfosSub(PicInfo pi, Dictionary<SplitScreenNumber, int> dic)
+        {
+            MinWidth = Math.Min(pi.PicSize.Width, MinWidth);
+            MinHeight = Math.Min(pi.PicSize.Height, MinHeight);
+
+            MaxWidth = Math.Max(pi.PicSize.Width, MaxWidth);
+            MaxHeight = Math.Max(pi.PicSize.Height, MaxHeight);
+
+            var r = pi.GetSplitScreenInfo();
+            if (!dic.ContainsKey(r))
+            {
+                dic.Add(r, 0);
+            }
+            dic[r]++;
+
+        }
+
+        private void SetPicInfosStat(Dictionary<SplitScreenNumber, int> dic)
+        {
             Console.Error.WriteLine("-------------------");
             Console.Error.WriteLine("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight);
             var min = Int32.MaxValue;
@@ -271,16 +385,15 @@ namespace MyZipper
             {
                 var splitInf = kvp.Key;
                 var cnt = kvp.Value;
-                if (splitInf.row < splitInf.col)
+                if (splitInf.Row < splitInf.Col)
                 {
-                    min = Math.Min(min, splitInf.col);
+                    min = Math.Min(min, splitInf.Col);
                 }
 
                 Console.Error.WriteLine("{0}:{1}", splitInf, cnt);
             }
-            _config.NumberOfSplitScreenHforLsImage = min;
+            Config.NumberOfSplitScreenHforLsImage = min;
             Console.Error.WriteLine("-------------------");
-            _config = config;
         }
     }
 }

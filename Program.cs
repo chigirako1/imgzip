@@ -27,7 +27,6 @@ namespace MyZipper
                 Console.Error.WriteLine(ex.ToString());
                 Environment.Exit(1);
             }
-
         }
     }
 }
