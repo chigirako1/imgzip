@@ -503,12 +503,25 @@ namespace MyZipper
                 var fcolor = FONT_BRUSH;
                 var fnt = new Font("MS UI Gothic", fsize);
                 var drawY = y;
-                
-                g.DrawString(string.Format("{0,3}:{1}", p.Number, GetTitle(p.Path)), fnt, fcolor, x, drawY);
+
+                string str;
+                str = string.Format("{0,3}:{1}", p.Number, GetTitle(p.Path));
+                g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
-                g.DrawString(string.Format("{0,4}x{1,4}", img.Width, img.Height), fnt, fcolor, x, drawY);
+
+                str = string.Format("{0,4}x{1,4}", img.Width, img.Height);
+                g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
-                g.DrawString(string.Format("{0,4}x{1,4}({2}%) [{3}x{4}]", w, h, (int)(ratio * 100), g.VisibleClipBounds.Width, g.VisibleClipBounds.Height), fnt, fcolor, x, drawY);
+
+                str = string.Format("{0,4}x{1,4}({2}%) [{3}x{4}]({5})",
+                    w,
+                    h,
+                    (int)(ratio * 100),
+                    g.VisibleClipBounds.Width,
+                    g.VisibleClipBounds.Height,
+                    _config.GetMagRatio(w, h)
+                    );
+                g.DrawString(str, fnt, fcolor, x, drawY);
             }
         }
 
@@ -555,7 +568,7 @@ namespace MyZipper
             using (var writer = new BinaryWriter(readmeEntry.Open()))
             {
                 writer.Write(bs, 0, bs.Length);
-                Console.Error.WriteLine(entryName);
+                Log.V(entryName);
             }
         }
 

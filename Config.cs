@@ -34,7 +34,7 @@ namespace MyZipper
         // input
         public string Inputpath { get; private set; }
 
-        public Size TargetScreenSize { get; private set; }
+        public Size TargetScreenSize { get; set; }
 
         // output
         public string OutputDir { get; private set; }
@@ -73,6 +73,7 @@ namespace MyZipper
         public bool isCrop { get; private set; }
 
         public bool LsCompositeLs { get; private set; }
+        public bool Quiet { get; private set; }
 
         public int IdxOutThreshold { get; private set; }
 
@@ -80,7 +81,7 @@ namespace MyZipper
         {
             if (args.Length < 3)
             {
-                Console.Error.WriteLine("引数の数が足りません。Usage: myzipper <options> <出力パス> <入力パス> [since=<YYYY/MM/DD>]");
+                Log.E("引数の数が足りません。Usage: myzipper <options> <出力パス> <入力パス> [since=<YYYY/MM/DD>]");
                 Environment.Exit(1);
             }
 
@@ -157,8 +158,12 @@ namespace MyZipper
                     case 's':
                         isSplitLongImage = true;
                         break;
+                    case 'Q':
+                        Quiet = true;
+                        Log.Quiet = true;
+                        break;
                     default:
-                        Console.Error.WriteLine("E:オプションが不正です。");
+                        Log.E("オプションが不正です。");
                         Environment.Exit(1);
                         break;
                 }
@@ -177,42 +182,39 @@ namespace MyZipper
 
             foreach (var arg in tmpargs)
             {
-#if false
-                Regex r = new Regex(@"since=(\d\d\d\d/\d\d/\d\d)", RegexOptions.IgnoreCase);
-                Match m = r.Match(arg);
-                if (m.Success)
-                {
-                    var date = m.Groups[1].Value;
-                    try
-                    {
-                        Since = DateTime.ParseExact(date, "yyyy/MM/dd", null);
-                        Console.Error.WriteLine("since={0}", Since);
-                    }
-                    catch (FormatException ex)
-                    {
-                        Console.Error.WriteLine("E:オプションが不正です。{}", ex);
-                        Environment.Exit(1);
-                    }
-                }
-#endif
                 var opt = arg.Split('=');
-                //var prm = 
                 switch (opt[0])
                 {
                     case "since":
                         try
                         {
                             Since = DateTime.ParseExact(opt[1], "yyyy/MM/dd", null);
-                            Console.Error.WriteLine("since={0}", Since);
+                            Log.V("since={0}", Since);
                         }
                         catch (FormatException ex)
                         {
-                            Console.Error.WriteLine("E:オプションが不正です。{}", ex);
+                            Log.E("オプションが不正です。{0}", ex);
+                            Environment.Exit(1);
+                        }
+                        break;
+                    case "screensize":
+                        Regex r = new Regex(@"(\d+)x(\d+)");
+                        Match m = r.Match(opt[1]);
+                        if (m.Success)
+                        {
+                            var w = int.Parse(m.Groups[1].Value);
+                            var h = int.Parse(m.Groups[2].Value);
+                            TargetScreenSize = new Size(w, h);
+                            Log.I("screen={0}", TargetScreenSize);
+                        }
+                        else
+                        {
+                            Log.E("オプションが不正です");
                             Environment.Exit(1);
                         }
                         break;
                     default:
-                        Console.Error.WriteLine();
+                        Log.E("オプションが不正です");
                         break;
                 }
             }
@@ -244,6 +246,14 @@ namespace MyZipper
             {
                 return (imgSize.Width < imgSize.Height) && (imgSize.Height >= TargetScreenSize.Height);
             }
+        }
+
+        public int GetMagRatio(int w, int h)
+        {
+            var wRatio = TargetScreenSize.Width * 100 / w;
+            var hRatio = TargetScreenSize.Height * 100 / h;
+            var ratio = Math.Min(wRatio, hRatio);
+            return ratio;
         }
     }
 }

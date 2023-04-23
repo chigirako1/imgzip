@@ -211,7 +211,7 @@ namespace MyZipper
         {
             string r = GetAspectRatioStr();
             var si = GetSplitScreenInfo();
-            Console.Error.WriteLine("{0,3}:'{1}'({2,4}x{3,4}),\tratio={4:f4},\t{5}\t{6}",
+            Log.V("{0,3}:'{1}'({2,4}x{3,4}),\tratio={4:f4},\t{5}\t{6}",
                 idx, 
                 Path, 
                 PicSize.Width, 
@@ -378,8 +378,8 @@ namespace MyZipper
 
         private void SetPicInfosStat(Dictionary<SplitScreenNumber, int> dic)
         {
-            Console.Error.WriteLine("-------------------");
-            Console.Error.WriteLine("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight);
+            Log.V("-------------------");
+            Log.V(String.Format("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight));
             var min = Int32.MaxValue;
             foreach (var kvp in dic.OrderBy(c => c.Key))
             {
@@ -390,10 +390,10 @@ namespace MyZipper
                     min = Math.Min(min, splitInf.Col);
                 }
 
-                Console.Error.WriteLine("{0}:{1}", splitInf, cnt);
+                Log.V("{0}:{1}", splitInf, cnt);
             }
             Config.NumberOfSplitScreenHforLsImage = min;
-            Console.Error.WriteLine("-------------------");
+            Log.V("-------------------");
         }
     }
 }

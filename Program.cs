@@ -8,12 +8,12 @@ namespace MyZipper
         {
             var config = new Config(args);
 
-            Console.WriteLine("[dbg] '{0}' -> '{1}'", config.Inputpath, config.OutputPath);
-            Console.WriteLine("[dbg] {0}({1})", config.TargetScreenSize, config.GetCanvasScreenRatio());
+            Log.I("'{0}' -> '{1}'", config.Inputpath, config.OutputPath);
+            Log.V("{0}({1})", config.TargetScreenSize, config.GetCanvasScreenRatio());
 
             var piclist = new PicInfoList(config.Inputpath, config);
             if (piclist.PicInfos.Count == 0) {
-                Console.Error.WriteLine("E:処理対象のファイルが存在しません。");
+                Log.E("処理対象のファイルが存在しません。:'{0}'", config.Inputpath);
                 Environment.Exit(1);
             }
 
@@ -24,7 +24,7 @@ namespace MyZipper
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(ex.ToString());
+                Log.E(ex.ToString());
                 Environment.Exit(1);
             }
         }
