@@ -123,7 +123,7 @@ namespace MyZipper
             isCrop = false;
             LsCompositeLs = false;
 
-            IdxOutThreshold = 5;
+            IdxOutThreshold = 4;
         }
 
         private void SetOptions(string options)

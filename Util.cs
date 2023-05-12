@@ -31,6 +31,23 @@ namespace MyZipper
 
             return Path.Combine(dirname, fn + appdStr + ext);
         }
+
+        static public string GetAspectRatioStr10_16(int width, int height)
+        {
+            if (width > height)
+            {
+                double ratio = (double)height / (double)width;
+                var str = string.Format("16:{0}", (int)Math.Truncate(16 / ratio));
+                return str;
+            }
+            else
+            {
+                double ratio = (double)height / (double)width;
+                var str = string.Format("{0}:16", (int)Math.Truncate(ratio * 16));
+                return str;
+            }
+
+        }
     }
 
     public class Log

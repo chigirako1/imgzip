@@ -105,6 +105,53 @@ namespace MyZipper
             return result;
         }
 
+        public CalcResult CalcCrop(int imgWidth, int imgHeight, bool nomagnify = true)
+        {
+            int x = 0;
+            int y = 0;
+            int canvasWidth = TargetScreenSize.Width;
+            int canvasHeight = TargetScreenSize.Height;
+            var wRatio = (float)canvasWidth / (float)imgWidth;
+            var hRatio = (float)canvasHeight / (float)imgHeight;
+            var ratio = Math.Max(wRatio, hRatio);
+
+            if (nomagnify && ratio > 1f)
+            {//拡大しない
+                ratio = 1f;
+
+                float scrnAsp = GetCanvasScreenRatio();
+                if (hRatio < 1f || wRatio > hRatio)
+                {
+                    canvasWidth = imgWidth;
+                    canvasHeight = (int)(imgWidth / scrnAsp);
+                }
+                else
+                {
+                    canvasHeight = imgHeight;
+                    canvasWidth = (int)(imgHeight * scrnAsp); ;
+                }
+            }
+            
+            // dst
+            var w = canvasWidth;
+            var h = canvasHeight;
+            var dstRect = new Rectangle(x, y, w, h);
+
+            // src
+            var srcW = (int)(dstRect.Width / ratio);
+            var srcH = (int)(dstRect.Height / ratio);
+            var srcX = (imgWidth - srcW) / 2;
+            var srcY = (imgHeight - srcH) / 2;
+            var srcRect = new Rectangle(srcX, srcY, srcW, srcH);
+
+            CalcResult result;
+            result.Canvas = new Size(canvasWidth, canvasHeight);
+            result.SrcRect = srcRect;
+            result.DstRect = dstRect;
+            result.Ratio = ratio;
+            return result;
+        }
+
         public CalcResult CalcCrop(int canvasWidth, int canvasHeight, int quotaWidth, int quotaHeight, int imgWidth, int imgHeight, ref int x, ref int y)
         {   // はみ出す部分は切り捨てる
 
@@ -150,7 +197,8 @@ namespace MyZipper
             if (wRatio > hRatio)
             {   //縦長画像。横幅に合わせる（上下がはみだす）。
 
-                 ratio = Math.Min(wRatio, 1.0f);
+                ratio = Math.Min(wRatio, 1.0f);
+                //ratio = wRatio;
 
                 // dst
                 var w = (int)(imgWidth * ratio);
@@ -181,7 +229,8 @@ namespace MyZipper
             }
             else
             {   // 横長画像。
-                ratio = Math.Min(hRatio, 1.0f); ;
+                ratio = Math.Min(hRatio, 1.0f);
+                //ratio = hRatio;
 
                 // dst
                 var w = Math.Min((int)(imgWidth * ratio), canvasWidth);

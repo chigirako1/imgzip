@@ -6,9 +6,6 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Windows.Media.Imaging;
-using static System.Net.WebRequestMethods;
 
 namespace MyZipper
 {
@@ -130,7 +127,11 @@ namespace MyZipper
         public string GetAspectRatioStr()
         {
             string r = "";
-            if (PicSize.Width > PicSize.Height)
+            if (IsRotated)
+            {
+                r = string.Format("[{0}-16]", (int)Math.Truncate(GetAspectRatio() * 16));
+            }
+            else if (PicSize.Width > PicSize.Height)
             {
                 r = string.Format("[16-{0}]", (int)Math.Truncate(16 / GetAspectRatio()));
             }
@@ -238,7 +239,7 @@ namespace MyZipper
             PicInfos = new List<PicInfo>();
             Config = config;
 
-            if (System.IO.File.GetAttributes(path).HasFlag(FileAttributes.Directory))
+            if (File.GetAttributes(path).HasFlag(FileAttributes.Directory))
             {
                 List<String> filelist = GetFileList(path);
                 SetPicInfos(filelist);

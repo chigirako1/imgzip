@@ -4,12 +4,15 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
+//using System.Windows.Media;
 
 namespace MyZipper
 {
     internal class Zipper
     {
         static private Brush BG_BRUSH = Brushes.Black;
+        static private Brush BG_BRUSH_ROT = Brushes.DarkCyan; 
+        static private Brush BG_BRUSH_COMB = Brushes.DarkBlue; 
         static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
         //static private Brush FONT_BRUSH = Brushes.Navy;
         static private Brush FONT_BRUSH = Brushes.Cyan;
@@ -229,7 +232,8 @@ namespace MyZipper
 
             if (_config.IsForce2P && cnt <= 1)
             {
-                AddEmptyImage(archive);
+                //AddEmptyImage(archive);
+                AddEmptyImage(piclist, archive, ref cnt);
             }
         }
 
@@ -328,9 +332,26 @@ namespace MyZipper
             p.IsDone = true;
         }
 
+        private void MakeImageAndAddZipEntrySub2(ref int cnt, PicInfo p, ZipArchive archive)
+        {
+            p.ZipEntryName = p.ZipEntryNameOrig;
+
+
+            byte[] bs = GetImageBinary(p, true, true);
+
+            cnt++;
+            var entryname = cnt.ToString("D3") + " " + p.ZipEntryName + ".jpg";
+            if (p.IsRotated)
+            {
+                entryname = "Rot-" + entryname;
+            }
+            AddZipEntry(archive, entryname, bs);
+            p.IsDone = true;
+        }
+
+
         private void AddSplitedImage(ref int cnt, PicInfo p, ZipArchive archive, int nume, int denomi)
         {
-            //var img = Image.FromFile(p.Path);
             var img = p.GetImage();
 
             var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, nume, denomi);
@@ -342,9 +363,8 @@ namespace MyZipper
             AddZipEntry(archive, entryname, bs);
         }
 
-        private byte[] GetImageBinary(PicInfo p, bool rot)
+        private byte[] GetImageBinary(PicInfo p, bool rot, bool crop = false)
         {
-            //var img = Image.FromFile(p.Path);
             var img = p.GetImage();
 
             if (rot && _config.RotatePredicate(img.Size))
@@ -355,7 +375,8 @@ namespace MyZipper
                 p.IsRotated = true;
             }
 
-            var bs = ResizeImageIfNecessary(p, img);
+            var bs = ResizeImageIfNecessary(p, img, crop);
+            
             return bs;
         }
 
@@ -380,6 +401,12 @@ namespace MyZipper
             AddZipEntry(archive, Config.GRAY_IMAGE_ENTRY_NAME, bs);
         }
 
+        private void AddEmptyImage(PicInfoList picInfos, ZipArchive archive, ref int cnt)
+        {
+            var p = picInfos.PicInfos[0];
+            MakeImageAndAddZipEntrySub2(ref cnt, p, archive);
+        }
+
         private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false, bool ls = false)
         {
             int canvasWidth;
@@ -398,14 +425,31 @@ namespace MyZipper
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            var brush = BG_BRUSH;
-            g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+            // 背景描画
+            var onecolor = false;
+            if (onecolor)
+            {
+                var brush = BG_BRUSH_COMB;
+                g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+            }
+            else
+            {
+                var p = picInfos[0];
+                var img = p.GetImage();
+
+                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, false);
+                g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
+
+                var opaqueBrush = new SolidBrush(Color.FromArgb(128, 0, 0, 0)); ;
+                g.FillRectangle(opaqueBrush, 0, 0, canvasWidth, canvasHeight);
+            }
 
             var x = 0;
             var y = 0;
             if (thum)
             {
-                y = (canvasHeight / 16);//少し上を開ける（
+                // 上に余白をあける
+                y = (canvasHeight / 16);
             }
 
             var splitNoV = splitNo.Col;
@@ -415,9 +459,7 @@ namespace MyZipper
 
             foreach (var p in picInfos)
             {
-                //var img = Image.FromFile(p.Path);
                 var img = p.GetImage();
-
 
                 if (thum)
                 {
@@ -461,9 +503,18 @@ namespace MyZipper
             return GetBmpByteStream(bmpCanvas);
         }
 
-        private byte[] ResizeImageIfNecessary(PicInfo p, Image img)
+        private byte[] ResizeImageIfNecessary(PicInfo p, Image img, bool crop = false)
         {
-            var result =  _coordinateCalculator.Calculate(img.Width, img.Height);
+            CalcResult result;
+            if (crop)
+            {
+                result = _coordinateCalculator.CalcCrop(img.Width, img.Height);
+            }
+            else
+            {
+                result = _coordinateCalculator.Calculate(img.Width, img.Height);
+            }
+            
 
             Bitmap bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
             if (result.Ratio < 1)
@@ -477,14 +528,33 @@ namespace MyZipper
 
         private Bitmap DrawImageAndInfo(PicInfo p, int canvasWidth, int canvasHeight, Image img, Rectangle dstRect, Rectangle srcRect, float ratio)
         {
-            // draw
             var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
 
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            var brush = BG_BRUSH;
-            g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+            var bgimage = false;
+            if (bgimage)
+            {
+                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, false);
+                g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
+
+                var opaqueBrush = new SolidBrush(Color.FromArgb(128+32, 0, 0, 0)); ;
+                g.FillRectangle(opaqueBrush, 0, 0, canvasWidth, canvasHeight);
+            }
+            else
+            {
+                Brush brush;
+                if (p.IsRotated)
+                {
+                    brush = BG_BRUSH_ROT;
+                }
+                else
+                {
+                    brush = BG_BRUSH;
+                }
+                g.FillRectangle(brush, 0, 0, canvasWidth, canvasHeight);
+            }
 
             g.DrawImage(img, dstRect, srcRect, GraphicsUnit.Pixel);
 
@@ -509,7 +579,9 @@ namespace MyZipper
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
-                str = string.Format("{0,4}x{1,4}", img.Width, img.Height);
+                // WxH [10:16]
+                //str = string.Format("{0,4}x{1,4}[{2}]", img.Width, img.Height, Util.GetAspectRatioStr10_16(img.Width, img.Height));
+                str = string.Format("{0,4}x{1,4}[{2}]", img.Width, img.Height, p.GetAspectRatioStr());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
