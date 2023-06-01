@@ -172,8 +172,8 @@ namespace MyZipper
             }
             else
             {
-                sn.Row = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
-                sn.Col = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
+                sn.Col = Math.Max(_config.TargetScreenSize.Width / (int)(PicSize.Width * per), 1);
+                sn.Row = Math.Max(_config.TargetScreenSize.Height / (int)(PicSize.Height * per), 1);
             }
 
             return sn;
@@ -202,8 +202,12 @@ namespace MyZipper
             }
             else
             {
-                bool hz = w * _config.allowPer > (screenSize.Width / 2) ;
-                bool vt = h * _config.allowPer > (screenSize.Height / 2);
+                var work_w = w * _config.allowPer;
+                var work_h = h * _config.allowPer;
+                var canvasW = screenSize.Width / _config.PlNumberOfCol; 
+                var canvasH = screenSize.Height / _config.PlNumberOfRow;
+                bool hz = work_w > canvasW;
+                bool vt = work_h > canvasH;
                 return hz || vt;
             }
         }
@@ -381,19 +385,45 @@ namespace MyZipper
         {
             Log.V("-------------------");
             Log.V(String.Format("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight));
-            var min = Int32.MaxValue;
+            var LsColMin = Int32.MaxValue;
+            var LsRowMin = Int32.MaxValue;
+            var PlRowMin = Int32.MaxValue;
+            var PlColMin = Int32.MaxValue;
             foreach (var kvp in dic.OrderBy(c => c.Key))
             {
                 var splitInf = kvp.Key;
                 var cnt = kvp.Value;
-                if (splitInf.Row < splitInf.Col)
+                if (splitInf.Row > splitInf.Col)
                 {
-                    min = Math.Min(min, splitInf.Col);
+                    LsRowMin = Math.Min(LsRowMin, splitInf.Row);
+                    LsColMin = Math.Min(LsColMin, splitInf.Col);
                 }
-
+                else if (splitInf.Row < splitInf.Col)
+                {
+                    PlRowMin = Math.Min(PlRowMin, splitInf.Row);
+                    PlColMin = Math.Min(PlColMin, splitInf.Col);
+                }
                 Log.V("{0}:{1}", splitInf, cnt);
             }
-            Config.NumberOfSplitScreenHforLsImage = min;
+            //landscape横長
+            if (LsRowMin != Int32.MaxValue)
+            {
+                Config.LsNumberOfRow = LsRowMin;
+            }
+            if (LsColMin != Int32.MaxValue)
+            {
+                Config.LsNumberOfCol = LsColMin;
+            }
+
+            //portlait縦長
+            if (PlRowMin != Int32.MaxValue)
+            {
+                Config.PlNumberOfRow = PlRowMin;
+            }
+            if (PlColMin != Int32.MaxValue)
+            {
+                Config.PlNumberOfCol = PlColMin;
+            }
             Log.V("-------------------");
         }
     }

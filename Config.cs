@@ -46,14 +46,11 @@ namespace MyZipper
 
 
         //縦長画像用の分割数
-        public int NumberOfSplitScreenVforPlImage { get; private set; }//垂直分割数
-        public int NumberOfSplitScreenHforPlImage{ get; private set; }
+        public int PlNumberOfCol { get;  set; }//幅に対しての分割数（列
+        public int PlNumberOfRow{ get; set; }//高さに対しての分割数（行
         //横長画像用の分割数
-        public int NumberOfSplitScreenVforLsImage { get; private set; }
-        public int NumberOfSplitScreenHforLsImage { get; set; }
-
-
-
+        public int LsNumberOfCol { get;  set; }
+        public int LsNumberOfRow { get; set; }
 
         public double allowPer { get; private set; }
 
@@ -105,10 +102,10 @@ namespace MyZipper
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
             OutputFileDivedeThreshold = 0;
-            NumberOfSplitScreenVforPlImage = 2;
-            NumberOfSplitScreenHforPlImage = 2;
-            NumberOfSplitScreenVforLsImage = 1;
-            NumberOfSplitScreenHforLsImage = 2;
+            PlNumberOfCol = 2;
+            PlNumberOfRow = 2;
+            LsNumberOfCol = 1;
+            LsNumberOfRow = 2;
 
             allowPer = 0.9;
 
@@ -223,6 +220,17 @@ namespace MyZipper
         public float GetCanvasScreenRatio()
         {
             return (float)TargetScreenSize.Width / (float)TargetScreenSize.Height;
+        }
+
+        public bool IsHugeDiff(float imgAsp)
+        {
+            float canvasAsp = GetCanvasScreenRatio();
+            float delta = Math.Abs(canvasAsp - imgAsp);
+            if (delta > 0.2)
+            {
+                return true;
+            }
+            return false;
         }
 
         public bool RotatePredicate(Size imgSize)

@@ -153,7 +153,7 @@ namespace MyZipper
                     else
                     {
                         plPicInfos.Add(p);
-                        if (plPicInfos.Count >= _config.NumberOfSplitScreenVforPlImage * _config.NumberOfSplitScreenHforPlImage)
+                        if (plPicInfos.Count >= _config.PlNumberOfCol * _config.PlNumberOfRow)
                         {
                             entryname = MakeEntryName(ref cnt, plPicInfos, "tate");
                             OutCombineImagePL(plPicInfos, archive, entryname);
@@ -194,7 +194,7 @@ namespace MyZipper
 
                         lsPicInfos.Add(p);
                         heightSum += p.PicSize.Height;
-                        if (lsPicInfos.Count >= _config.NumberOfSplitScreenVforLsImage * _config.NumberOfSplitScreenHforLsImage)
+                        if (lsPicInfos.Count >= _config.LsNumberOfCol * _config.LsNumberOfRow)
                         {
                             entryname = MakeEntryName(ref cnt, lsPicInfos, "yoko");
                             OutCombineImageLS(lsPicInfos, archive, entryname);
@@ -247,8 +247,8 @@ namespace MyZipper
 
         private void OutCombineImagePL(List<PicInfo> picInfos, ZipArchive archive, string entryname)
         {
-            int splitNoV = Math.Min(_config.NumberOfSplitScreenVforPlImage, picInfos.Count);
-            int splitNoH = Math.Min(_config.NumberOfSplitScreenHforPlImage, picInfos.Count);
+            int splitNoV = Math.Min(_config.PlNumberOfCol, picInfos.Count);
+            int splitNoH = Math.Min(_config.PlNumberOfRow, picInfos.Count);
             SplitScreenNumber splitNo;
             splitNo.Col = splitNoV;
             splitNo.Row = splitNoH;
@@ -262,8 +262,8 @@ namespace MyZipper
 
         private void OutCombineImageLS(List<PicInfo> picInfos, ZipArchive archive, string entryname, bool ls = false)
         {
-            int splitNoV = Math.Min(_config.NumberOfSplitScreenVforLsImage, picInfos.Count);
-            int splitNoH = Math.Min(_config.NumberOfSplitScreenHforLsImage, picInfos.Count);
+            int splitNoV = Math.Min(_config.LsNumberOfCol, picInfos.Count);
+            int splitNoH = Math.Min(_config.LsNumberOfRow, picInfos.Count);
             SplitScreenNumber splitNo;
             if (ls)
             {
@@ -335,7 +335,6 @@ namespace MyZipper
         private void MakeImageAndAddZipEntrySub2(ref int cnt, PicInfo p, ZipArchive archive)
         {
             p.ZipEntryName = p.ZipEntryNameOrig;
-
 
             byte[] bs = GetImageBinary(p, true, true);
 
@@ -533,13 +532,24 @@ namespace MyZipper
             Graphics g = Graphics.FromImage(bmpCanvas);
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-            var bgimage = false;
+            var asp = p.GetAspectRatio();
+            var bgimage = _config.IsHugeDiff(asp); 
             if (bgimage)
             {
                 var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, false);
                 g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
 
-                var opaqueBrush = new SolidBrush(Color.FromArgb(128+32, 0, 0, 0)); ;
+                Color bkcolor;
+                if (p.IsRotated)
+                {
+                    //bkcolor = Color.DarkCyan;
+                    bkcolor = Color.Black;
+                }
+                else
+                {
+                    bkcolor = Color.Black;
+                }
+                var opaqueBrush = new SolidBrush(Color.FromArgb(192, bkcolor)); ;
                 g.FillRectangle(opaqueBrush, 0, 0, canvasWidth, canvasHeight);
             }
             else
@@ -581,7 +591,7 @@ namespace MyZipper
 
                 // WxH [10:16]
                 //str = string.Format("{0,4}x{1,4}[{2}]", img.Width, img.Height, Util.GetAspectRatioStr10_16(img.Width, img.Height));
-                str = string.Format("{0,4}x{1,4}[{2}]", img.Width, img.Height, p.GetAspectRatioStr());
+                str = string.Format("{0,4}x{1,4}{2}", img.Width, img.Height, p.GetAspectRatioStr());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
