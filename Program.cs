@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyZipper.src;
+using System;
 
 namespace MyZipper
 {
@@ -17,10 +18,18 @@ namespace MyZipper
                 Environment.Exit(1);
             }
 
-            var zipper = new Zipper(config);
             try
             {
-                zipper.OutputCombine(piclist);
+                if (config.SplitLR == 0)
+                {
+                    var zipper = new Zipper(config);
+                    zipper.OutputCombine(piclist);
+                }
+                else
+                {
+                    var splitter = new Splitter(config);
+                    splitter.Split(piclist);
+                }
             }
             catch (Exception ex)
             {

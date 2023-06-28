@@ -45,6 +45,10 @@ namespace MyZipper
         public int OutputFileDivedeThreshold { get; private set; }
 
 
+
+        public int SplitLR { get; private set; }
+
+
         //縦長画像用の分割数
         public int PlNumberOfCol { get;  set; }//幅に対しての分割数（列
         public int PlNumberOfRow{ get; set; }//高さに対しての分割数（行
@@ -182,6 +186,9 @@ namespace MyZipper
                 var opt = arg.Split('=');
                 switch (opt[0])
                 {
+                    case "splitLR":
+                        SplitLR = int.Parse(opt[1]);
+                        break;
                     case "since":
                         try
                         {

@@ -7,11 +7,14 @@ namespace MyZipper
     {
         static public string GetEntryName(string path)
         {
+            /*絵文字や文字様記号、数学用文字が含まれていると表示されないAndroidタブレットがあるので
             var dirname = Path.GetDirectoryName(path);
             dirname = Path.GetFileName(dirname);
             var fn = Path.GetFileNameWithoutExtension(path);
 
             return dirname + "-" + fn;
+            */
+            return "x";
         }
 
         static public string GetTitle(string path)

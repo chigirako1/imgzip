@@ -102,11 +102,6 @@ namespace MyZipper
             {
                 using (var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
                 {
-                    if (_config.isAppendIdxCover && piclist.PicInfos.Count >= _config.IdxOutThreshold)
-                    {   //先頭にサムネイルをまとめた画像を追加する
-                        OutputThumbnailListToArchiveFile(piclist, archive);
-                    }
-
                     OutputFilesToArchiveFile(piclist, archive);
                 }
             }
@@ -133,6 +128,11 @@ namespace MyZipper
 
         private void OutputFilesToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
+            if (_config.isAppendIdxCover && piclist.PicInfos.Count >= _config.IdxOutThreshold)
+            {   //先頭にサムネイルをまとめた画像を追加する
+                OutputThumbnailListToArchiveFile(piclist, archive);
+            }
+
             var plPicInfos = new List<PicInfo>();//縦portlait
             var lsPicInfos = new List<PicInfo>();//横landscape
 
@@ -147,7 +147,14 @@ namespace MyZipper
                 {   // 縦長
 
                     if (_config.NoComposite || p.IsOutputAlone(_config.TargetScreenSize))
-                    {   // 一枚絵として出力
+                    {
+                        if (plPicInfos.Count > 0)
+                        {   
+                            entryname = MakeEntryName(ref cnt, plPicInfos, "tate");
+                            OutCombineImagePL(plPicInfos, archive, entryname);
+                        }
+
+                        // 一枚絵として出力
                         MakeImageAndAddZipEntry(ref cnt, p, archive);
                     }
                     else
@@ -447,6 +454,14 @@ namespace MyZipper
             var y = 0;
             if (thum)
             {
+                var fsize = 40;
+                var fcolor = FONT_BRUSH;
+                var fnt = new Font("MS UI Gothic", fsize);
+                var drawY = y;
+                string str;
+                str = string.Format($"{_config.Inputpath}");
+                g.DrawString(str, fnt, fcolor, x, drawY);
+
                 // 上に余白をあける
                 y = (canvasHeight / 16);
             }
