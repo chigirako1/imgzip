@@ -43,14 +43,24 @@ namespace MyZipper.src
 
             for (int i = 0; i < _config.SplitLR;  i++)
             {
-                //g.FillRectangle(System.Drawing.Brushes.Black, 0, 0, canvasWidth, canvasHeight);
                 Rectangle srcRect = new Rectangle(canvasWidth * i, 0, canvasWidth, canvasHeight);
                 g.DrawImage(img, dstRect, srcRect, GraphicsUnit.Pixel);
 
                 var srcDirname = Path.GetDirectoryName(p.Path);
                 var dstDirname = srcDirname + "new";
-                var srcFilename = Path.GetFileNameWithoutExtension(p.Path); 
-                var dstFilename = string.Format("{0}-{1}.jpg", srcFilename, i + 1);
+                var srcFilename = Path.GetFileNameWithoutExtension(p.Path);
+                int renban;
+                if (true)
+                {
+                    // r -> l
+                    renban = _config.SplitLR - i;
+                }
+                else
+                {
+                    // l -> r
+                    renban = i + 1;
+                }
+                var dstFilename = string.Format("{0}-{1}.jpg", srcFilename, renban);
                 if (!File.Exists(dstDirname))
                 {
                     Directory.CreateDirectory(dstDirname);
