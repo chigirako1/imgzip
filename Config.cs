@@ -11,6 +11,7 @@ namespace MyZipper
     {
         None,
         Auto = None,
+        Twt,
     }
 
     //横長画像の扱い
@@ -56,22 +57,22 @@ namespace MyZipper
         public int LsNumberOfCol { get;  set; }
         public int LsNumberOfRow { get; set; }
 
-        public double allowPer { get; private set; }
+        public double AllowPer { get; private set; }
 
         public DateTime? Since { get; set; }
 
         // 縦長、横長画像を別のzipファイルに出力するか
-        public bool isSeparateOutput { get; private set; }
+        public bool IsSeparateOutput { get; private set; }
 
         // 横長画像を回転するか
-        public bool isRotatePlImage { get; private set; }
-        public bool isRotateAlt{ get; private set; }
-        public bool isPicSizeDraw { get; private set; }
+        public bool IsRotatePlImage { get; private set; }
+        public bool IsRotateAlt{ get; private set; }
+        public bool IsPicSizeDraw { get; private set; }
         public bool IsForce2P { get; private set; }
-        public bool isAppendIdxCover { get; private set; }
-        public bool isSplitLongImage { get; private set; }
+        public bool IsAppendIdxCover { get; private set; }
+        public bool IsSplitLongImage { get; private set; }
         public bool NoComposite { get; private set; }
-        public bool isCrop { get; private set; }
+        public bool IsCrop { get; private set; }
 
         public bool LsCompositeLs { get; private set; }
         public bool Quiet { get; private set; }
@@ -88,20 +89,20 @@ namespace MyZipper
 
             string outPath = args[1];
             string inPath = args[2];
-            var mode = Mode.Auto;
 
-            init(inPath, outPath, mode);
+            Init(inPath, outPath);
 
             SetOptions(args[0]);
             ParseOptions(args);
         }
 
 
-        private void init(string inputpath, string outputPath, Mode mode)
+        private void Init(string inputpath, string outputPath)
         {
             Inputpath = inputpath;
             OutputPath = outputPath;
-            Mode = mode;
+
+            Mode = Mode.Auto;
 
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
@@ -111,17 +112,18 @@ namespace MyZipper
             LsNumberOfCol = 1;
             LsNumberOfRow = 2;
 
-            allowPer = 0.9;
+            //allowPer = 0.9;
+            AllowPer = 1.0;
 
             Since = null;
 
-            isSeparateOutput = false;
-            isRotatePlImage = false;
-            isPicSizeDraw = false;
+            IsSeparateOutput = false;
+            IsRotatePlImage = false;
+            IsPicSizeDraw = false;
             IsForce2P = false;
-            isRotateAlt = false;
+            IsRotateAlt = false;
             NoComposite = false;
-            isCrop = false;
+            IsCrop = false;
             LsCompositeLs = false;
 
             IdxOutThreshold = 4;
@@ -142,22 +144,22 @@ namespace MyZipper
                     case 'a':
                         break;
                     case 'c':
-                        isAppendIdxCover = true;
+                        IsAppendIdxCover = true;
                         break;
                     case 'C':
-                        isCrop = true;
+                        IsCrop = true;
                         break;
                     case 'i':
-                        isPicSizeDraw = true;
+                        IsPicSizeDraw = true;
                         break;
                     case 'r':
-                        isRotatePlImage = true;
+                        IsRotatePlImage = true;
                         break;
                     case 'R':
-                        isRotateAlt = true;
+                        IsRotateAlt = true;
                         break;
                     case 's':
-                        isSplitLongImage = true;
+                        IsSplitLongImage = true;
                         break;
                     case 'Q':
                         Quiet = true;
@@ -217,6 +219,17 @@ namespace MyZipper
                             Environment.Exit(1);
                         }
                         break;
+                    case "mode":
+                        if (opt[1] == "twt")
+                        {
+                            Mode = Mode.Twt;
+                        }
+                        else
+                        {
+                            Log.E("オプションが不正です");
+                            Environment.Exit(1);
+                        }
+                        break;
                     default:
                         Log.E("オプションが不正です");
                         break;
@@ -242,7 +255,7 @@ namespace MyZipper
 
         public bool RotatePredicate(Size imgSize)
         {
-            if (!isRotatePlImage)
+            if (!IsRotatePlImage)
             {
                 return false;
             }

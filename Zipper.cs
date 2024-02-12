@@ -10,15 +10,15 @@ namespace MyZipper
 {
     internal class Zipper
     {
-        static private Brush BG_BRUSH = Brushes.Black;
-        static private Brush BG_BRUSH_ROT = Brushes.DarkCyan; 
-        static private Brush BG_BRUSH_COMB = Brushes.DarkBlue; 
-        static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
+        private static readonly Brush BG_BRUSH = Brushes.Black;
+        private static readonly Brush BG_BRUSH_ROT = Brushes.DarkCyan; 
+        private static readonly Brush BG_BRUSH_COMB = Brushes.DarkBlue; 
+        //static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
         //static private Brush FONT_BRUSH = Brushes.Navy;
-        static private Brush FONT_BRUSH = Brushes.Cyan;
+        private static readonly Brush FONT_BRUSH = Brushes.Cyan;
 
-        private Config _config;
-        private CoordinateCalculator _coordinateCalculator;
+        private readonly Config _config;
+        private readonly CoordinateCalculator _coordinateCalculator;
 
         public Zipper(Config config)
         {
@@ -26,10 +26,6 @@ namespace MyZipper
             _coordinateCalculator = new CoordinateCalculator(_config.TargetScreenSize);
         }
 
-        private string GetTitle(string path)
-        {
-            return Util.GetTitle(path);
-        }
 
 #if FALSE
         public void Output(PicInfoList piclist)
@@ -128,7 +124,7 @@ namespace MyZipper
 
         private void OutputFilesToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
-            if (_config.isAppendIdxCover && piclist.PicInfos.Count >= _config.IdxOutThreshold)
+            if (_config.IsAppendIdxCover && piclist.PicInfos.Count >= _config.IdxOutThreshold)
             {   //先頭にサムネイルをまとめた画像を追加する
                 OutputThumbnailListToArchiveFile(piclist, archive);
             }
@@ -298,13 +294,13 @@ namespace MyZipper
             }
 
             MakeImageAndAddZipEntrySub(ref cnt, p, archive, true);
-            if (_config.isRotateAlt && p.IsRotated)
+            if (_config.IsRotateAlt && p.IsRotated)
             {   // 回転しない画像も出力する
                 MakeImageAndAddZipEntrySub(ref cnt, p, archive, false);
             }
 
             // 細長い画像を分割して保存する
-            if (_config.isSplitLongImage)
+            if (_config.IsSplitLongImage)
             {
                 int denomi;
                 if (p.PicSize.Width > p.PicSize.Height)
@@ -386,7 +382,7 @@ namespace MyZipper
             return bs;
         }
 
-        private void AddEmptyImage(ZipArchive archive)
+        /*private void AddEmptyImage(ZipArchive archive)
         {
             var canvasWidth = _config.TargetScreenSize.Width;
             var canvasHeight = _config.TargetScreenSize.Height;
@@ -405,7 +401,7 @@ namespace MyZipper
             byte[] bs = GetBmpByteStream(bmpCanvas);
 
             AddZipEntry(archive, Config.GRAY_IMAGE_ENTRY_NAME, bs);
-        }
+        }*/
 
         private void AddEmptyImage(PicInfoList picInfos, ZipArchive archive, ref int cnt)
         {
@@ -486,7 +482,7 @@ namespace MyZipper
                 }
                 else
                 {
-                    if (_config.isCrop)
+                    if (_config.IsCrop)
                     {   // はみ出る部分切り捨て
                         var result = _coordinateCalculator.CalcCrop(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
                         var yohakuW = (quotaWidth - result.DstRect.Width) / 2;
@@ -592,7 +588,7 @@ namespace MyZipper
 
         private void DrawPicInfo(PicInfo p, Graphics g, Image img, int w, int h, int x, int y, float ratio)
         {
-            if (_config.isPicSizeDraw)
+            if (_config.IsPicSizeDraw)
             {
                 var fsize = 20;
                 var fcolor = FONT_BRUSH;
@@ -600,13 +596,19 @@ namespace MyZipper
                 var drawY = y;
 
                 string str;
-                str = string.Format("{0,3}:{1}", p.Number, GetTitle(p.Path));
+                str = string.Format("{0,3}:{1}", p.Number, p.GetTitle());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
+                if (_config.Mode == Mode.Twt)
+                {
+                    str = string.Format("uploaded at {0}", p.GetUploadDate());
+                    g.DrawString(str, fnt, fcolor, x, drawY);
+                    drawY += fsize;
+                }
+
                 // WxH [10:16]
-                //str = string.Format("{0,4}x{1,4}[{2}]", img.Width, img.Height, Util.GetAspectRatioStr10_16(img.Width, img.Height));
-                str = string.Format("{0,4}x{1,4}{2}", img.Width, img.Height, p.GetAspectRatioStr());
+                str = string.Format("{0,4}x{1,4}{2} {3}", img.Width, img.Height, p.GetAspectRatioStr(), p.FileSizeStr());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 

@@ -1,11 +1,58 @@
 ﻿using System;
+using System.Drawing;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace MyZipper
 {
+    public class Twt
+    {
+        static public DateTime GetDateTime(long id)
+        {
+            // Twitterエポック(2010-11-04 01:42:54.657)
+            long twitterEpoch = 1288834974657L;
+
+            // UNIXエポック(1970/01/01 00:00:00.000)
+            long unixEpoch = 62135596800000L;
+
+            // タイムスタンプのビット数
+            int timestampBits = 41;
+            // タイムスタンプのシフト数
+            int timestampShift = 22;
+            // タイムスタンプのマスク
+            long timestampMask = -1L ^ (-1L << timestampBits);
+
+            // 0001/01/01 00:00:00.000 からの経過ミリ秒
+            var timestamp =
+                ((id >> timestampShift) & timestampMask)
+                    + twitterEpoch
+                    + unixEpoch;
+            return new DateTime(
+                timestamp * TimeSpan.TicksPerMillisecond,
+                DateTimeKind.Utc
+            );
+        }
+    }
+
     public class Util
     {
-        static public string GetEntryName(string path)
+        static public string GetUploadDate(string path)
+        {
+            Regex r = new Regex(@"(\d+) \d+ \d+-\d+-\d+");
+            Match m = r.Match(path);
+            if (m.Success)
+            {
+                var tweet_id = long.Parse(m.Groups[1].Value);
+                //Log.I($"tweet_id={tweet_id}");
+
+                var d = Twt.GetDateTime(tweet_id);
+                return d.ToString();
+            }
+
+            return "";
+        }
+
+        static public string GetEntryName(/*string path*/)
         {
             /*絵文字や文字様記号、数学用文字が含まれていると表示されないAndroidタブレットがあるので
             var dirname = Path.GetDirectoryName(path);

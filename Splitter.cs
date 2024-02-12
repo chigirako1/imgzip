@@ -12,7 +12,7 @@ namespace MyZipper.src
 {
     internal class Splitter
     {
-        private Config _config;
+        private readonly Config _config;
 
         public Splitter(Config config)
         {
@@ -58,7 +58,7 @@ namespace MyZipper.src
                 else
                 {
                     // l -> r
-                    renban = i + 1;
+                    //renban = i + 1;
                 }
                 var dstFilename = string.Format("{0}-{1}.jpg", srcFilename, renban);
                 if (!File.Exists(dstDirname))

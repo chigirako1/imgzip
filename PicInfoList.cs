@@ -53,7 +53,7 @@ namespace MyZipper
     internal class PicInfo
     {
         private Config _config;
-        private bool IsZipEntry;
+        private readonly bool IsZipEntry;
 
         public int Number { get; private set; }
 
@@ -63,13 +63,13 @@ namespace MyZipper
         public bool IsDone { get; set; }
         public string ZipEntryName { get; set; }
         public string ZipEntryNameOrig { get; set; }
-        public bool IsRotated{ get; set; }
+        public bool IsRotated { get; set; }
 
         public PicInfo(int no, FileInfo fi, Config config)
         {
             var image = Image.FromFile(fi.FullName);
             PicSize = image.Size;
-            constructor(no, fi.FullName, fi.Length, config);
+            Constructor(no, fi.FullName, fi.Length, config);
         }
 
         public PicInfo(int no, ZipArchiveEntry ent, Config config)
@@ -77,10 +77,10 @@ namespace MyZipper
             IsZipEntry = true;
             var image = Image.FromStream(ent.Open());
             PicSize = image.Size;
-            constructor(no, ent.FullName, ent.Length, config);
+            Constructor(no, ent.FullName, ent.Length, config);
         }
 
-        private void constructor(int no, string fullname, long length, Config config)
+        private void Constructor(int no, string fullname, long length, Config config)
         {
             Number = no;
             _config = config;
@@ -88,7 +88,7 @@ namespace MyZipper
             Path = fullname;
             FileSize = length;
 
-            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(Path), PicSize.Width, PicSize.Height, GetAspectRatioStr());
+            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(/*Path*/), PicSize.Width, PicSize.Height, GetAspectRatioStr());
             ZipEntryName = ZipEntryNameOrig;
         }
 
@@ -124,9 +124,26 @@ namespace MyZipper
             return ratio;
         }
 
+        public string GetTitle()
+        {
+            var title = Util.GetTitle(Path);
+            return title;
+        }
+
+        public string GetUploadDate()
+        {
+            var date = Util.GetUploadDate(Path);
+            return date;
+        }
+
+        public string FileSizeStr()
+        {
+            return string.Format("{0} KB", FileSize / 1024);
+        }
+
         public string GetAspectRatioStr()
         {
-            string r = "";
+            string r;// = "";
             if (IsRotated)
             {
                 r = string.Format("[{0}-16]", (int)Math.Truncate(GetAspectRatio() * 16));
@@ -159,10 +176,10 @@ namespace MyZipper
 
         public SplitScreenNumber GetSplitScreenInfo()
         {
-            double per = _config.allowPer;
+            double per = _config.AllowPer;
             SplitScreenNumber sn;
 
-            if (_config.isRotatePlImage &&
+            if (_config.IsRotatePlImage &&
                 _config.TargetScreenSize.Height > _config.TargetScreenSize.Width &&
                 PicSize.Width < PicSize.Height
                 )
@@ -202,8 +219,8 @@ namespace MyZipper
             }
             else
             {
-                var work_w = w * _config.allowPer;
-                var work_h = h * _config.allowPer;
+                var work_w = w * _config.AllowPer;
+                var work_h = h * _config.AllowPer;
                 var canvasW = screenSize.Width / _config.PlNumberOfCol; 
                 var canvasH = screenSize.Height / _config.PlNumberOfRow;
                 bool hz = work_w > canvasW;
@@ -231,7 +248,7 @@ namespace MyZipper
     internal class PicInfoList
     {
         public List<PicInfo> PicInfos { get; }
-        private Config Config;
+        private readonly Config Config;
 
         public int MinWidth { get; private set; }
         public int MinHeight { get; private set; }
