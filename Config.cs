@@ -1,17 +1,20 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text.RegularExpressions;
 
 namespace MyZipper
 {
-
-
     //mode
     enum Mode
     {
         None,
         Auto = None,
         Twt,
+        Pxv,
+        PassThrough,
+
+        MAX
     }
 
     //横長画像の扱い
@@ -45,7 +48,7 @@ namespace MyZipper
         // 出力Zipを分割するファイル数（0なら分割しない)
         public int OutputFileDivedeThreshold { get; private set; }
 
-
+        public bool UseOrigName { get; private set; }
 
         public int SplitLR { get; private set; }
 
@@ -74,6 +77,9 @@ namespace MyZipper
         public bool NoComposite { get; private set; }
         public bool IsCrop { get; private set; }
 
+        public int SeparateFileNumberThreashold{ get; private set; }
+        public int SeparateFileNumber { get; private set; }
+
         public bool LsCompositeLs { get; private set; }
         public bool Quiet { get; private set; }
 
@@ -101,6 +107,7 @@ namespace MyZipper
         {
             Inputpath = inputpath;
             OutputPath = outputPath;
+            UseOrigName = false;
 
             Mode = Mode.Auto;
 
@@ -125,6 +132,9 @@ namespace MyZipper
             NoComposite = false;
             IsCrop = false;
             LsCompositeLs = false;
+
+            SeparateFileNumberThreashold = 0;
+            SeparateFileNumber = 0;
 
             IdxOutThreshold = 4;
         }
@@ -188,8 +198,13 @@ namespace MyZipper
                 var opt = arg.Split('=');
                 switch (opt[0])
                 {
+                    case "useOrigName":
+                        UseOrigName = true;
+                        Log.V("UseOrigName={0}", UseOrigName);
+                        break;
                     case "splitLR":
                         SplitLR = int.Parse(opt[1]);
+                        Log.V("SplitLR={0}", SplitLR);
                         break;
                     case "since":
                         try
@@ -215,7 +230,7 @@ namespace MyZipper
                         }
                         else
                         {
-                            Log.E("オプションが不正です");
+                            Log.E($"オプションが不正です。{opt[1]}");
                             Environment.Exit(1);
                         }
                         break;
@@ -224,14 +239,38 @@ namespace MyZipper
                         {
                             Mode = Mode.Twt;
                         }
+                        else if (opt[1] == "pxv")
+                        {
+                            Mode = Mode.Pxv;
+                        }
+                        else if (opt[1] == "passthrough")
+                        {
+                            Mode = Mode.PassThrough;
+                        }
                         else
                         {
                             Log.E("オプションが不正です");
                             Environment.Exit(1);
                         }
                         break;
+                    case "separate":
+                        Regex rgx = new Regex(@"(\d+):(\d+)");
+                        Match match = rgx.Match(opt[1]);
+                        if (match.Success)
+                        {
+
+                            SeparateFileNumberThreashold = int.Parse(match.Groups[1].Value);
+                            SeparateFileNumber = int.Parse(match.Groups[2].Value);
+                            Log.I("sepa={0}:{1}", SeparateFileNumberThreashold, SeparateFileNumber);
+                        }
+                        else
+                        {
+                            Log.E($"オプションが不正です。{opt[1]}");
+                            Environment.Exit(1);
+                        }
+                        break;
                     default:
-                        Log.E("オプションが不正です");
+                        Log.E($"オプションが不正です。=> {opt[0]}");
                         break;
                 }
             }
@@ -282,6 +321,24 @@ namespace MyZipper
             var hRatio = TargetScreenSize.Height * 100 / h;
             var ratio = Math.Min(wRatio, hRatio);
             return ratio;
+        }
+
+        public string GetTwtID()
+        {
+            Debug.Assert(this.Mode == Mode.Twt);
+
+            {
+                return Twt.GetTwtID(Inputpath);
+            }
+        }
+
+        public int GetPxvID()
+        {
+            Debug.Assert(this.Mode == Mode.Pxv);
+
+            {
+                return Pxv.GetPxvID(Inputpath);
+            }
         }
     }
 }

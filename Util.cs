@@ -1,39 +1,11 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 
 namespace MyZipper
 {
-    public class Twt
-    {
-        static public DateTime GetDateTime(long id)
-        {
-            // Twitterエポック(2010-11-04 01:42:54.657)
-            long twitterEpoch = 1288834974657L;
-
-            // UNIXエポック(1970/01/01 00:00:00.000)
-            long unixEpoch = 62135596800000L;
-
-            // タイムスタンプのビット数
-            int timestampBits = 41;
-            // タイムスタンプのシフト数
-            int timestampShift = 22;
-            // タイムスタンプのマスク
-            long timestampMask = -1L ^ (-1L << timestampBits);
-
-            // 0001/01/01 00:00:00.000 からの経過ミリ秒
-            var timestamp =
-                ((id >> timestampShift) & timestampMask)
-                    + twitterEpoch
-                    + unixEpoch;
-            return new DateTime(
-                timestamp * TimeSpan.TicksPerMillisecond,
-                DateTimeKind.Utc
-            );
-        }
-    }
-
     public class Util
     {
         static public string GetUploadDate(string path)
@@ -52,16 +24,13 @@ namespace MyZipper
             return "";
         }
 
-        static public string GetEntryName(/*string path*/)
+        static public string GetEntryName(string path)
         {
-            /*絵文字や文字様記号、数学用文字が含まれていると表示されないAndroidタブレットがあるので
             var dirname = Path.GetDirectoryName(path);
             dirname = Path.GetFileName(dirname);
             var fn = Path.GetFileNameWithoutExtension(path);
 
             return dirname + "-" + fn;
-            */
-            return "x";
         }
 
         static public string GetTitle(string path)
@@ -71,6 +40,20 @@ namespace MyZipper
             var fn = Path.GetFileNameWithoutExtension(path);
 
             return Path.Combine(dirname, fn);
+        }
+        static public string GetExt(string path)
+        {
+            return Path.GetExtension(path);
+        }
+
+        static public string GetZipPath(string path, int cnt)
+        {
+            var dirname = Path.GetDirectoryName(path);
+            
+            var fn = Path.GetFileNameWithoutExtension(path);
+            var ext = Path.GetExtension(path);
+
+            return Path.Combine(dirname, $"{fn}[{cnt:D3}]{ext}");
         }
 
         static public string AppendPostfixToFilename(string origName, string appdStr)
@@ -96,7 +79,6 @@ namespace MyZipper
                 var str = string.Format("{0}:16", (int)Math.Truncate(ratio * 16));
                 return str;
             }
-
         }
     }
 
@@ -135,12 +117,28 @@ namespace MyZipper
 
         static private void LogOut(string prefix, string s, params Object[] args)
         {
-            if (Quiet)
+            /*if (Quiet)
             {
                 return;
-            }
+            }*/
             Console.Write(prefix);
             Console.WriteLine(s, args);
+        }
+    }
+
+    public class Zip
+    {
+        static public void CreateEntryFromFile(ZipArchive archive, string rootpath, string fullpath)
+        {
+            //var entryname = "1.jpg";
+
+
+            var subdir = fullpath.Replace(rootpath, "");
+            Log.D("subidr:" + subdir);
+            //var e = archive.CreateEntry(subdir);
+
+            //var filename = Path.GetFileName(fullpath);
+            /*var entry = */archive.CreateEntryFromFile(fullpath, subdir);
         }
     }
 }

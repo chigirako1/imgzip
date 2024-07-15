@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -17,8 +18,17 @@ namespace MyZipper
         //static private Brush FONT_BRUSH = Brushes.Navy;
         private static readonly Brush FONT_BRUSH = Brushes.Cyan;
 
+        private static readonly string FONT_NAME = "MS UI Gothic";
+        private static readonly int FONT_SIZE = 40;
+
         private readonly Config _config;
         private readonly CoordinateCalculator _coordinateCalculator;
+
+#if DEBUG
+        const FileMode FILEMODE = FileMode.Create;//デバッグ時は上書きする（消すの面倒なので
+#else
+        const FileMode FILEMODE = FileMode.CreateNew;
+#endif
 
         public Zipper(Config config)
         {
@@ -85,15 +95,82 @@ namespace MyZipper
         // --------------------------------------------------------------------
         // 
         // --------------------------------------------------------------------
-        public void OutputCombine(PicInfoList piclist)
+        public void PassThrough(PicInfoList piclist)
         {
             var zipname = _config.OutputPath;
+            PassThrough(piclist, zipname);
+        }
 
-#if DEBUG
-            FileMode filemode = FileMode.Create;//デバッグ時は上書きする（消すの面倒なので
-#else
-            FileMode filemode = FileMode.CreateNew;
-#endif
+        private void PassThrough(PicInfoList piclist, string zipname)
+        {
+            FileMode filemode = FILEMODE;
+            using (var zipToOpen = new FileStream(zipname, filemode))
+            {
+                using (var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
+                {
+                    PassThrough(piclist, archive);
+                }
+            }
+        }
+
+        private void PassThrough(PicInfoList piclist, ZipArchive archive)
+        {
+            Log.D(this._config.Inputpath);
+
+            var root = this._config.Inputpath;
+            if (Path.IsPathRooted(this._config.Inputpath))
+            {
+
+            }
+            else
+            {
+                var cd = Directory.GetCurrentDirectory();
+                Log.D("cd:" + cd);
+                root = cd + "\\" + root;
+            }
+            
+            foreach (var p in piclist.PicInfos)
+            {
+                Log.D(p.Path);
+                Zip.CreateEntryFromFile(archive, root, p.Path);
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // 
+        // --------------------------------------------------------------------
+        public void OutputCombine(PicInfoList piclist)
+        {
+
+            if (_config.SeparateFileNumberThreashold > 0 && piclist.PicInfos.Count > _config.SeparateFileNumberThreashold)
+            {
+                int idx = 0;
+                while (idx < piclist.PicInfos.Count)
+                {
+                    var cnt = _config.SeparateFileNumber;
+                    if (false)
+                    {
+                        //TODO: 残りが少ない場合は一つにまとめる?
+                        //cnt = 
+                    }
+                    var plist = new PicInfoList(piclist, idx, cnt);
+                    var zipname = Util.GetZipPath(_config.OutputPath, idx);
+                    OutputCombine_(plist, zipname);
+
+                    //idx += _config.SeparateFileNumber;
+                    idx += cnt;
+                }
+            }
+            else
+            {
+                var zipname = _config.OutputPath;
+                OutputCombine_(piclist, zipname);
+            }
+        }
+
+        private void OutputCombine_(PicInfoList piclist, string zipname)
+        {
+            FileMode filemode = FILEMODE;
             using (var zipToOpen = new FileStream(zipname, filemode))
             {
                 using (var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
@@ -450,13 +527,32 @@ namespace MyZipper
             var y = 0;
             if (thum)
             {
-                var fsize = 40;
+                var fsize = FONT_SIZE;
                 var fcolor = FONT_BRUSH;
-                var fnt = new Font("MS UI Gothic", fsize);
+                var fnt = new Font(FONT_NAME, fsize);
                 var drawY = y;
                 string str;
                 str = string.Format($"{_config.Inputpath}");
                 g.DrawString(str, fnt, fcolor, x, drawY);
+                drawY += fsize;
+
+                switch (_config.Mode)
+                {
+                    case Mode.Pxv:
+                        var pxvid = _config.GetPxvID();
+                        var p_row = new PxvRow();
+                        Sqlite.GetPxvUserInfo(pxvid, p_row);
+                        g.DrawString(p_row.ToString(), fnt, fcolor, x, drawY);
+                        break;
+                    case Mode.Twt:
+                        var twtid = _config.GetTwtID();
+                        var t_row = new TwtRow();
+                        Sqlite.GetTwtUserInfo(twtid, t_row);
+                        g.DrawString(t_row.ToString(), fnt, fcolor, x, drawY);
+                        break;
+                    default:
+                        break;
+                }
 
                 // 上に余白をあける
                 y = (canvasHeight / 16);
@@ -596,7 +692,7 @@ namespace MyZipper
                 var drawY = y;
 
                 string str;
-                str = string.Format("{0,3}:{1}", p.Number, p.GetTitle());
+                str = string.Format("{0,3}:{1}{2}", p.Number, p.GetTitle(), p.GetExt());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 

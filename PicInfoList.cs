@@ -88,7 +88,18 @@ namespace MyZipper
             Path = fullname;
             FileSize = length;
 
-            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(/*Path*/), PicSize.Width, PicSize.Height, GetAspectRatioStr());
+            string ent;
+            if (config.UseOrigName)
+            {
+                ent = Path;
+            }
+            else
+            {
+                //*絵文字や文字様記号、数学用文字が含まれていると表示されないAndroidタブレットがあるので
+                ent = "x";
+            }
+
+            ZipEntryNameOrig = string.Format("{0}({1}x{2}){3}", Util.GetEntryName(ent), PicSize.Width, PicSize.Height, GetAspectRatioStr());
             ZipEntryName = ZipEntryNameOrig;
         }
 
@@ -128,6 +139,11 @@ namespace MyZipper
         {
             var title = Util.GetTitle(Path);
             return title;
+        }
+
+        public string GetExt()
+        {
+            return Util.GetExt(Path);
         }
 
         public string GetUploadDate()
@@ -248,7 +264,7 @@ namespace MyZipper
     internal class PicInfoList
     {
         public List<PicInfo> PicInfos { get; }
-        private readonly Config Config;
+        readonly Config Config;
 
         public int MinWidth { get; private set; }
         public int MinHeight { get; private set; }
@@ -285,7 +301,16 @@ namespace MyZipper
                     );
 
             var filelist = new List<string>(files);
-            filelist.Sort(new NaturalStringComparer());
+            if (Config.Mode == Mode.Pxv)
+            {
+                //TODO: artwork idでソート？
+                filelist.Sort(new NaturalStringComparer());
+            }
+            else
+            {
+                filelist.Sort(new NaturalStringComparer());
+            }
+            
 
             return filelist;
         }
@@ -442,6 +467,24 @@ namespace MyZipper
                 Config.PlNumberOfCol = PlColMin;
             }
             Log.V("-------------------");
+        }
+
+        public PicInfoList(PicInfoList picinfolist, int idx, int cnt)
+        {
+            var count = cnt;
+            if (idx + count > picinfolist.PicInfos.Count)
+            {
+                count = picinfolist.PicInfos.Count - idx;
+            }
+            Log.D($"idx={idx}, cnt={cnt}, count={count}, *={picinfolist.PicInfos.Count}");
+
+            PicInfos = picinfolist.PicInfos.GetRange(idx, count);
+            Config = picinfolist.Config;
+
+            MinWidth = picinfolist.MinWidth;
+            MinHeight = picinfolist.MinHeight;
+            MaxWidth = picinfolist.MaxWidth;
+            MaxHeight = picinfolist.MaxHeight;
         }
     }
 }

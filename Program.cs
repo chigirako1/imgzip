@@ -20,7 +20,12 @@ namespace MyZipper
 
             try
             {
-                if (config.SplitLR == 0)
+                if (config.Mode == Mode.PassThrough)
+                {
+                    var zipper = new Zipper(config);
+                    zipper.PassThrough(piclist);
+                }
+                else if (config.SplitLR == 0)
                 {
                     var zipper = new Zipper(config);
                     zipper.OutputCombine(piclist);
