@@ -17,9 +17,11 @@ namespace MyZipper
         //static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
         //static private Brush FONT_BRUSH = Brushes.Navy;
         private static readonly Brush FONT_BRUSH = Brushes.Cyan;
+        private static readonly Brush FONT_BRUSH_I = Brushes.Magenta;
 
         private static readonly string FONT_NAME = "MS UI Gothic";
         private static readonly int FONT_SIZE = 40;
+        private static readonly int FONT_SIZE2 = 20;
 
         private readonly Config _config;
         private readonly CoordinateCalculator _coordinateCalculator;
@@ -97,8 +99,24 @@ namespace MyZipper
         // --------------------------------------------------------------------
         public void PassThrough(PicInfoList piclist)
         {
-            var zipname = _config.OutputPath;
-            PassThrough(piclist, zipname);
+            if (_config.SeparateFileNumberThreashold > 0 && piclist.PicInfos.Count > _config.SeparateFileNumberThreashold)
+            {
+                int idx = 0;
+                while (idx < piclist.PicInfos.Count)
+                {
+                    var cnt = _config.SeparateFileNumber;
+                    var plist = new PicInfoList(piclist, idx, cnt);
+                    var zipname = Util.GetZipPath(_config.OutputPath, idx, piclist.PicInfos.Count);
+                    PassThrough(plist, zipname);
+
+                    idx += cnt;
+                }
+            }
+            else
+            {
+                var zipname = _config.OutputPath;
+                PassThrough(piclist, zipname);
+            }
         }
 
         private void PassThrough(PicInfoList piclist, string zipname)
@@ -125,14 +143,29 @@ namespace MyZipper
             else
             {
                 var cd = Directory.GetCurrentDirectory();
-                Log.D("cd:" + cd);
+                Log.I("cd=" + cd);
                 root = cd + "\\" + root;
             }
-            
+
+            var screen_max = Math.Max(_config.TargetScreenSize.Width, _config.TargetScreenSize.Height); 
             foreach (var p in piclist.PicInfos)
             {
                 Log.D(p.Path);
-                Zip.CreateEntryFromFile(archive, root, p.Path);
+                
+                if (p.PicSize.Width > screen_max || p.PicSize.Height > screen_max || p.Path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.I($"WxH:{p.PicSize.Width}x{p.PicSize.Height}({p.Path})");
+
+                    var img = p.GetImage();
+                    var bs = GetResizeImageBytes(p, img);
+                    var entryname = p.Path.Replace(root, "");
+                    entryname = Util.GetTitle(entryname) + ".jpg";
+                    AddZipEntry(archive, entryname, bs);
+                }
+                else
+                {
+                    Zip.CreateEntryFromFile(archive, root, p.Path);
+                }
             }
         }
 
@@ -141,7 +174,6 @@ namespace MyZipper
         // --------------------------------------------------------------------
         public void OutputCombine(PicInfoList piclist)
         {
-
             if (_config.SeparateFileNumberThreashold > 0 && piclist.PicInfos.Count > _config.SeparateFileNumberThreashold)
             {
                 int idx = 0;
@@ -154,7 +186,7 @@ namespace MyZipper
                         //cnt = 
                     }
                     var plist = new PicInfoList(piclist, idx, cnt);
-                    var zipname = Util.GetZipPath(_config.OutputPath, idx);
+                    var zipname = Util.GetZipPath(_config.OutputPath, idx, piclist.PicInfos.Count);
                     OutputCombine_(plist, zipname);
 
                     //idx += _config.SeparateFileNumber;
@@ -175,7 +207,23 @@ namespace MyZipper
             {
                 using (var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
                 {
-                    OutputFilesToArchiveFile(piclist, archive);
+                    if (_config.Mode == Mode.WinTablet)
+                    {
+                        OutputFilesToArchiveFileForWin(piclist, archive);
+                    }
+                    else
+                    {
+                        OutputFilesToArchiveFile(piclist, archive);
+                    }
+
+                    AddZipTxtEntry(archive, "zzz.txt", "test txt zip");
+                    /*MemoryStream memstr = new MemoryStream();
+                    StreamWriter sw = new StreamWriter(memstr);
+                    sw.Write("test txt zip");
+                    sw.Flush();
+                    memstr.Position = 0;
+                    archive.Entries.Add(memstr, "zzz_sample.txt");
+                    memstr.Close();*/
                 }
             }
         }
@@ -317,6 +365,16 @@ namespace MyZipper
             }
         }
 
+        private void OutputFilesToArchiveFileForWin(PicInfoList piclist, ZipArchive archive)
+        {
+            int cnt = 0;
+            //Log.I($"{piclist}{archive}");
+            foreach (var p in piclist.PicInfos)
+            {
+                MakeImageAndAddZipEntry(ref cnt, p, archive);
+            }
+        }
+
         private string MakeEntryName(ref int cnt, List<PicInfo> picInfos, string postAppd)
         {
             cnt++;
@@ -371,6 +429,7 @@ namespace MyZipper
             }
 
             MakeImageAndAddZipEntrySub(ref cnt, p, archive, true);
+
             if (_config.IsRotateAlt && p.IsRotated)
             {   // 回転しない画像も出力する
                 MakeImageAndAddZipEntrySub(ref cnt, p, archive, false);
@@ -532,7 +591,15 @@ namespace MyZipper
                 var fnt = new Font(FONT_NAME, fsize);
                 var drawY = y;
                 string str;
-                str = string.Format($"{_config.Inputpath}");
+
+                long fsum = 0;
+                foreach (var p in picInfos)
+                {
+                    fsum += p.FileSize;
+                }
+
+                //str = string.Format($"{_config.Inputpath}[sum{_config.FileSizeSum/1024}kb/avg{_config.FileSizeSum / picInfos.Count/1024}kb]");
+                str = string.Format($"{_config.Inputpath}[sum{fsum / 1024}kb/avg{fsum / picInfos.Count / 1024}kb]");
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
@@ -540,9 +607,12 @@ namespace MyZipper
                 {
                     case Mode.Pxv:
                         var pxvid = _config.GetPxvID();
-                        var p_row = new PxvRow();
-                        Sqlite.GetPxvUserInfo(pxvid, p_row);
-                        g.DrawString(p_row.ToString(), fnt, fcolor, x, drawY);
+                        if (pxvid != 0)
+                        {
+                            var p_row = new PxvRow();
+                            Sqlite.GetPxvUserInfo(pxvid, p_row);
+                            g.DrawString(p_row.ToString(), fnt, fcolor, x, drawY);
+                        }
                         break;
                     case Mode.Twt:
                         var twtid = _config.GetTwtID();
@@ -632,6 +702,15 @@ namespace MyZipper
             return GetBmpByteStream(bmpCanvas);
         }
 
+        private byte[] GetResizeImageBytes(PicInfo p, Image img)
+        {
+            var result = _coordinateCalculator.Calculate(img.Width, img.Height, false);
+
+            var bmpCanvas = DrawImageAndInfo(p, result.Canvas.Width, result.Canvas.Height, img, result.DstRect, result.SrcRect, result.Ratio);
+
+            return GetBmpByteStream(bmpCanvas);
+        }
+
         private Bitmap DrawImageAndInfo(PicInfo p, int canvasWidth, int canvasHeight, Image img, Rectangle dstRect, Rectangle srcRect, float ratio)
         {
             var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
@@ -686,7 +765,7 @@ namespace MyZipper
         {
             if (_config.IsPicSizeDraw)
             {
-                var fsize = 20;
+                var fsize = FONT_SIZE2;
                 var fcolor = FONT_BRUSH;
                 var fnt = new Font("MS UI Gothic", fsize);
                 var drawY = y;
@@ -703,12 +782,19 @@ namespace MyZipper
                     drawY += fsize;
                 }
 
-                // WxH [10:16]
-                str = string.Format("{0,4}x{1,4}{2} {3}", img.Width, img.Height, p.GetAspectRatioStr(), p.FileSizeStr());
-                g.DrawString(str, fnt, fcolor, x, drawY);
-                drawY += fsize;
+                {
+                    var fnt_clr = fcolor;
+                    if (p.FileSize > 1 * 1024 * 1024)
+                    {
+                        fnt_clr = FONT_BRUSH_I;
+                    }
+                    // WxH [10:16]
+                    str = string.Format("{0,4}x{1,4}{2} {3}", img.Width, img.Height, p.GetAspectRatioStr(), p.FileSizeStr());
+                    g.DrawString(str, fnt, fnt_clr, x, drawY);
+                    drawY += fsize;
+                }
 
-                str = string.Format("{0,4}x{1,4}({2}%) [{3}x{4}]({5})",
+                str = string.Format("{0,4}x{1,4}({2}%) [{3}x{4}]({5}%)",
                     w,
                     h,
                     (int)(ratio * 100),
@@ -757,10 +843,20 @@ namespace MyZipper
         }
 #endif
 
+        private void AddZipTxtEntry(ZipArchive archive, string entryName, string text)
+        {
+            var entry = archive.CreateEntry(entryName);
+            using (var writer = new StreamWriter(entry.Open()))
+            {
+                writer.Write(text);
+                Log.V(entryName);
+            }
+        }
+
         private void AddZipEntry(ZipArchive archive, string entryName, byte[] bs)
         {
-            var readmeEntry = archive.CreateEntry(entryName);
-            using (var writer = new BinaryWriter(readmeEntry.Open()))
+            var entry = archive.CreateEntry(entryName);
+            using (var writer = new BinaryWriter(entry.Open()))
             {
                 writer.Write(bs, 0, bs.Length);
                 Log.V(entryName);

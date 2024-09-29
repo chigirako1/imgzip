@@ -24,9 +24,28 @@ namespace MyZipper
             }
             else
             {
-                Log.E($"not found: '{path}'");
+                Log.E($"pxv id not found: '{path}'");
                 // Environment.Exit(1);
                 return 0;
+            }
+        }
+
+        static public string GetPxvArtworkTitleFromPath(string path)
+        {
+            Regex rgx = new Regex(@"(\d\d-\d\d-\d\d)\s+(.*)\(\d+\)");
+            Match m = rgx.Match(path);
+            if (m.Success)
+            {
+                //var date = m.Groups[1].Value;
+                var title = m.Groups[2].Value;
+                //var artwork_id = m.Groups[3].Value;
+                //Log.I($"{title}\t{path}");
+                return title;
+            }
+            else
+            {
+                Log.W("'{0}'", path);
+                return "";
             }
         }
     }

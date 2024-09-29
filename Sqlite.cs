@@ -25,8 +25,23 @@ namespace MyZipper
                     {
                         if (reader.Read())
                         {
-                            row.TwtID = (string)reader["twtid"];
-                            row.ScreenName = (string)reader["twtname"];
+                            try
+                            {
+                                row.TwtID = (string)reader["twtid"];
+                                if (reader["twtname"].Equals(DBNull.Value))
+                                {
+                                    row.ScreenName = "unset";
+                                }
+                                else
+                                {
+                                    row.ScreenName = (string)reader["twtname"];
+                                }
+                            }
+                            catch (FormatException ex)
+                            {
+                                Log.E("NULL??{0}", ex);
+                                row.ScreenName = "";
+                            }
                         }
                         else
                         {
@@ -100,7 +115,7 @@ namespace MyZipper
 
         public override string ToString()
         {
-            return $"【{Rating}】{R18}|{PxvName}({PxvID})-{Status}|{Warnings}";
+            return $"【{Rating}】{R18}|{PxvName}({PxvID})-{Status}|{Warnings}({Filenum})";
         }
     }
 }

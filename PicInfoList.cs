@@ -154,7 +154,18 @@ namespace MyZipper
 
         public string FileSizeStr()
         {
-            return string.Format("{0} KB", FileSize / 1024);
+            if (FileSize < 1024 * 1024)
+            {
+                return string.Format("{0} KB", FileSize / 1024);
+            }
+            else if (FileSize > 2 * 1024 * 1024)
+            {
+                return string.Format("{0} MB★", FileSize / 1024 / 1024);
+            }
+            else
+            {
+                return string.Format("{0} KB★", FileSize / 1024);
+            }
         }
 
         public string GetAspectRatioStr()
@@ -270,6 +281,7 @@ namespace MyZipper
         public int MinHeight { get; private set; }
         public int MaxWidth { get; private set; }
         public int MaxHeight { get; private set; }
+        public long FileSizeSum { get; private set; }
 
         public PicInfoList(string path, Config config)
         {
@@ -303,8 +315,17 @@ namespace MyZipper
             var filelist = new List<string>(files);
             if (Config.Mode == Mode.Pxv)
             {
-                //TODO: artwork idでソート？
-                filelist.Sort(new NaturalStringComparer());
+                switch (Config.Sort)
+                {
+                    case Sort.TITLE:
+                        filelist.Sort(new PxvTitleComparer());
+                        break;
+                    case Sort.AUTO:
+                    default:
+                        //TODO: artwork idでソート？
+                        filelist.Sort(new NaturalStringComparer());
+                        break;
+                }
             }
             else
             {
@@ -373,7 +394,8 @@ namespace MyZipper
                 {
                     if (Config.Since > fi.CreationTime)
                     {
-                        Console.WriteLine("生成日時={0}:処理対象外のファイルです。\"{1}\"", fi.CreationTime, fi.FullName);
+                        //Console.WriteLine("生成日時={0}:処理対象外のファイルです。\"{1}\"", fi.CreationTime, fi.FullName);
+                        Log.V($"\t生成日時={fi.CreationTime}:処理対象外のファイルです。\"{fi.FullName}\"");
                         continue;
                     }
                 }
@@ -381,8 +403,12 @@ namespace MyZipper
                 pi.PrintInfo(f.idx + 1);
                 PicInfos.Add(pi);
 
+                FileSizeSum += pi.FileSize;
+
                 SetPicInfosSub(pi, dic);
             }
+
+            Config.FileSizeSum = FileSizeSum;
 
             SetPicInfosStat(dic);
         }

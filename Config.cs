@@ -13,6 +13,18 @@ namespace MyZipper
         Twt,
         Pxv,
         PassThrough,
+        WinTablet,
+
+        MAX
+    }
+
+    //sort
+    enum Sort
+    {
+        NONE,
+        AUTO = NONE,
+        TITLE,
+        PXVID,
 
         MAX
     }
@@ -34,6 +46,7 @@ namespace MyZipper
 
 
         public Mode Mode { get; private set; }
+        public Sort Sort { get; private set; }
 
         // input
         public string Inputpath { get; private set; }
@@ -76,6 +89,7 @@ namespace MyZipper
         public bool IsSplitLongImage { get; private set; }
         public bool NoComposite { get; private set; }
         public bool IsCrop { get; private set; }
+        public bool IsShrink { get; private set; }
 
         public int SeparateFileNumberThreashold{ get; private set; }
         public int SeparateFileNumber { get; private set; }
@@ -84,6 +98,8 @@ namespace MyZipper
         public bool Quiet { get; private set; }
 
         public int IdxOutThreshold { get; private set; }
+
+        public long FileSizeSum { get; set; }//ひどすぎる
 
         public Config(string[] args)
         {
@@ -110,6 +126,7 @@ namespace MyZipper
             UseOrigName = false;
 
             Mode = Mode.Auto;
+            Sort = Sort.AUTO;
 
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
@@ -132,6 +149,7 @@ namespace MyZipper
             NoComposite = false;
             IsCrop = false;
             LsCompositeLs = false;
+            IsShrink = true;
 
             SeparateFileNumberThreashold = 0;
             SeparateFileNumber = 0;
@@ -200,17 +218,17 @@ namespace MyZipper
                 {
                     case "useOrigName":
                         UseOrigName = true;
-                        Log.V("UseOrigName={0}", UseOrigName);
+                        Log.I("UseOrigName={0}", UseOrigName);
                         break;
                     case "splitLR":
                         SplitLR = int.Parse(opt[1]);
-                        Log.V("SplitLR={0}", SplitLR);
+                        Log.I("SplitLR={0}", SplitLR);
                         break;
                     case "since":
                         try
                         {
                             Since = DateTime.ParseExact(opt[1], "yyyy/MM/dd", null);
-                            Log.V("since={0}", Since);
+                            Log.I("since={0}", Since);
                         }
                         catch (FormatException ex)
                         {
@@ -247,11 +265,23 @@ namespace MyZipper
                         {
                             Mode = Mode.PassThrough;
                         }
+                        else if (opt[1] == "WinTablet")
+                        {
+                            Mode = Mode.WinTablet;
+                        }
                         else
                         {
                             Log.E("オプションが不正です");
                             Environment.Exit(1);
                         }
+                        Log.I("mode={0}", Mode);
+                        break;
+                    case "sort":
+                        if (opt[1] == "title")
+                        {
+                            Sort = Sort.TITLE;
+                        }
+                        Log.I("sort={0}", Sort);
                         break;
                     case "separate":
                         Regex rgx = new Regex(@"(\d+):(\d+)");

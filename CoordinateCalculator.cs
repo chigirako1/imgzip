@@ -33,7 +33,7 @@ namespace MyZipper
             return (float)TargetScreenSize.Width / (float)TargetScreenSize.Height;
         }
 
-        public CalcResult Calculate(int imgWidth, int imgHeight)
+        public CalcResult Calculate(int imgWidth, int imgHeight, bool adjust_by_aspect=true)
         {
             var wRatio = (float)TargetScreenSize.Width / (float)imgWidth;
             var hRatio = (float)TargetScreenSize.Height / (float)imgHeight;
@@ -55,21 +55,24 @@ namespace MyZipper
 
             var canvasWidth = w;
             var canvasHeight = h;
-            float scrnAsp = GetCanvasScreenRatio();
-            float picRatio = (float)w / (float)h;
-            // キャンバスサイズを表示領域のアスペクト比に合わせる
-            if (scrnAsp < picRatio)
+            if (adjust_by_aspect)
             {
-                canvasHeight = (int)(w / scrnAsp);
-                y = (canvasHeight - h) / 2;
-            }
-            else if (scrnAsp > picRatio)
-            {
-                canvasWidth = (int)(h * scrnAsp);
-                x = (canvasWidth - w) / 2;
-            }
-            else
-            {
+                float scrnAsp = GetCanvasScreenRatio();
+                float picRatio = (float)w / (float)h;
+                // キャンバスサイズを表示領域のアスペクト比に合わせる
+                if (scrnAsp < picRatio)
+                {
+                    canvasHeight = (int)(w / scrnAsp);
+                    y = (canvasHeight - h) / 2;
+                }
+                else if (scrnAsp > picRatio)
+                {
+                    canvasWidth = (int)(h * scrnAsp);
+                    x = (canvasWidth - w) / 2;
+                }
+                else
+                {
+                }
             }
 
             var srcX = 0;

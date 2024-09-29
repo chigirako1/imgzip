@@ -20,6 +20,16 @@ namespace MyZipper.src
         }
     }
 
+    public sealed class PxvTitleComparer : IComparer<string>
+    {
+        public int Compare(string a, string b)
+        {
+            var titlea = Pxv.GetPxvArtworkTitleFromPath(a) + a;
+            var titleb = Pxv.GetPxvArtworkTitleFromPath(b) + b;
+            return SafeNativeMethods.StrCmpLogicalW(titlea, titleb);
+        }
+    }
+
     public sealed class NaturalFileInfoNameComparer : IComparer<FileInfo>
     {
         public int Compare(FileInfo a, FileInfo b)

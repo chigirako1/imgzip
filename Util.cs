@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace MyZipper
@@ -46,14 +47,28 @@ namespace MyZipper
             return Path.GetExtension(path);
         }
 
-        static public string GetZipPath(string path, int cnt)
+        static public string GetZipPath(string path, int cnt, int totalNo)
         {
+
+
+
             var dirname = Path.GetDirectoryName(path);
             
             var fn = Path.GetFileNameWithoutExtension(path);
             var ext = Path.GetExtension(path);
 
-            return Path.Combine(dirname, $"{fn}[{cnt:D3}]{ext}");
+            string type = "D"; // 補間タイプ ("D"=10進数)
+            var digit = 3;  // 桁数
+            if (totalNo > 999)
+            {
+                digit = 4;
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.Append(type);
+            sb.Append(digit);
+
+            //return Path.Combine(dirname, $"{fn}[{cnt:D3}]{ext}");
+            return Path.Combine(dirname, $"{fn}[{cnt.ToString(sb.ToString())}]{ext}");
         }
 
         static public string AppendPostfixToFilename(string origName, string appdStr)
@@ -85,60 +100,65 @@ namespace MyZipper
     public class Log
     {
         public static bool Quiet;
+        public static bool Dbg = false;
+        public static bool Verbose = false;
 
         static public void E(string s, params Object[] args)
         {
-            Console.Error.Write("[E] ");
-            Console.Error.WriteLine(s, args);
+            //Console.Error.Write("[E] ");
+            //Console.Error.WriteLine(s, args);
+            LogOut("[E] ", s, args);
         }
 
         static public void W(string s, params Object[] args)
         {
-            Console.Error.Write("[W] ");
-            Console.Error.WriteLine(s, args);
+            //Console.Error.Write("[W] ");
+            //Console.Error.WriteLine(s, args);
+            LogOut("[W] ", s, args);
         }
 
         static public void D(string s, params Object[] args)
         {
-            Console.Error.Write("[D] ");
-            Console.Error.WriteLine(s, args);
+            if (Dbg)
+            { 
+                //Console.Error.Write("[D] ");
+                //Console.Error.WriteLine(s, args);
+                LogOut("[D] ", s, args);
+            }
         }
 
         static public void I(string s, params Object[] args)
         {
-            Console.Error.Write("[I] ");
-            Console.Error.WriteLine(s, args);
+            //Console.Error.Write("[I] ");
+            //Console.Error.WriteLine(s, args);
+            LogOut("[I] ", s, args);
         }
 
         static public void V(string s, params Object[] args)
         {
-            LogOut("[V] ", s, args);
+            if (Verbose)
+            {
+                LogOut("[V] ", s, args);
+            }
         }
 
         static private void LogOut(string prefix, string s, params Object[] args)
         {
-            /*if (Quiet)
-            {
-                return;
-            }*/
-            Console.Write(prefix);
-            Console.WriteLine(s, args);
+            Console.Error.Write(prefix);
+            Console.Error.WriteLine(s, args);
         }
     }
 
     public class Zip
     {
-        static public void CreateEntryFromFile(ZipArchive archive, string rootpath, string fullpath)
+        static public void CreateEntryFromFile(ZipArchive archive, string rootpath, string infilepath)
         {
-            //var entryname = "1.jpg";
-
-
-            var subdir = fullpath.Replace(rootpath, "");
-            Log.D("subidr:" + subdir);
+            var subdir = infilepath.Replace(rootpath, "");
+            Log.V("subidr:" + subdir);
             //var e = archive.CreateEntry(subdir);
 
             //var filename = Path.GetFileName(fullpath);
-            /*var entry = */archive.CreateEntryFromFile(fullpath, subdir);
+            /*var entry = */archive.CreateEntryFromFile(infilepath, subdir);
         }
     }
 }

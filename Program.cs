@@ -1,5 +1,6 @@
 ﻿using MyZipper.src;
 using System;
+using System.IO;
 
 namespace MyZipper
 {
@@ -9,8 +10,16 @@ namespace MyZipper
         {
             var config = new Config(args);
 
-            Log.I("'{0}' -> '{1}'", config.Inputpath, config.OutputPath);
+            Log.I("##############################################");
+            Log.I("'{0}'", config.Inputpath);
+            Log.I("↓");
+            var dirname = Path.GetDirectoryName(config.OutputPath);
+            dirname = Path.GetFileName(dirname);
+            Log.I($"'{dirname}'");
+            var fn = Path.GetFileNameWithoutExtension(config.OutputPath);
+            Log.I($"'{fn}'");
             Log.V("{0}({1})", config.TargetScreenSize, config.GetCanvasScreenRatio());
+            Log.I("##############################################");
 
             var piclist = new PicInfoList(config.Inputpath, config);
             if (piclist.PicInfos.Count == 0) {
