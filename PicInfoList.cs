@@ -269,6 +269,14 @@ namespace MyZipper
                 r,
                 si
                 );
+            if (!Path.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase))
+            {
+                Log.W($"not jpg:{Path}");
+            }
+            else if (FileSize > 1024*1024)
+            {
+                Log.W($"filesize huge:{Util.FormatFileSize(FileSize)}[{PicSize.Width}x{PicSize.Height}]'{Path}'");
+            }
         }
     }
 
@@ -320,6 +328,10 @@ namespace MyZipper
                     case Sort.TITLE:
                         filelist.Sort(new PxvTitleComparer());
                         break;
+                    case Sort.TITLE_CP:
+                        filelist.Sort(new PxvTitleComparer(1));
+                        break;
+                    case Sort.PXV_ARTWORK_ID:
                     case Sort.AUTO:
                     default:
                         //TODO: artwork idでソート？

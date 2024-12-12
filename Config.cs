@@ -24,7 +24,17 @@ namespace MyZipper
         NONE,
         AUTO = NONE,
         TITLE,
-        PXVID,
+        TITLE_CP,
+        PXV_ARTWORK_ID,
+
+        MAX
+    }
+
+    enum TopPageIdxImage
+    {
+        NONE,
+        ALL_IMAGE,
+        GROUP,
 
         MAX
     }
@@ -61,6 +71,8 @@ namespace MyZipper
         // 出力Zipを分割するファイル数（0なら分割しない)
         public int OutputFileDivedeThreshold { get; private set; }
 
+        //エントリ名に元のファイル名を使用する
+        //
         public bool UseOrigName { get; private set; }
 
         public int SplitLR { get; private set; }
@@ -85,7 +97,7 @@ namespace MyZipper
         public bool IsRotateAlt{ get; private set; }
         public bool IsPicSizeDraw { get; private set; }
         public bool IsForce2P { get; private set; }
-        public bool IsAppendIdxCover { get; private set; }
+        public TopPageIdxImage CoverType { get; private set; }
         public bool IsSplitLongImage { get; private set; }
         public bool NoComposite { get; private set; }
         public bool IsCrop { get; private set; }
@@ -172,10 +184,14 @@ namespace MyZipper
                     case 'a':
                         break;
                     case 'c':
-                        IsAppendIdxCover = true;
+                        CoverType = TopPageIdxImage.ALL_IMAGE;
                         break;
                     case 'C':
                         IsCrop = true;
+                        break;
+                    case 'g':
+                        CoverType = TopPageIdxImage.GROUP;
+                        Log.I($"CoverType={CoverType}");
                         break;
                     case 'i':
                         IsPicSizeDraw = true;
@@ -280,6 +296,10 @@ namespace MyZipper
                         if (opt[1] == "title")
                         {
                             Sort = Sort.TITLE;
+                        }
+                        else if (opt[1] == "title_cp")
+                        {
+                            Sort = Sort.TITLE_CP;
                         }
                         Log.I("sort={0}", Sort);
                         break;

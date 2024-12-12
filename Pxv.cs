@@ -15,7 +15,8 @@ namespace MyZipper
         {
             var dirname = Path.GetFileName(path);
 
-            Regex r = new Regex(@"\w+\(#?(\d+)\)");
+            //Regex r = new Regex(@"\w+\(#?(\d+)\)");
+            Regex r = new Regex(@".+\(#?(\d+)\)");
             Match m = r.Match(dirname);
             if (m.Success)
             {
@@ -24,15 +25,15 @@ namespace MyZipper
             }
             else
             {
-                Log.E($"pxv id not found: '{path}'");
+                Log.E($"pxv id not found: '{dirname}'('{path}')");
                 // Environment.Exit(1);
                 return 0;
             }
         }
 
-        static public string GetPxvArtworkTitleFromPath(string path)
+        static public string GetPxvArtworkTitleFromPath(string path, string regex_str = @"(\d\d-\d\d-\d\d)\s+(.*)\(\d+\)")
         {
-            Regex rgx = new Regex(@"(\d\d-\d\d-\d\d)\s+(.*)\(\d+\)");
+            Regex rgx = new Regex(regex_str);
             Match m = rgx.Match(path);
             if (m.Success)
             {
@@ -44,7 +45,7 @@ namespace MyZipper
             }
             else
             {
-                Log.W("'{0}'", path);
+                Log.W("rgx err:'{0}'", path);
                 return "";
             }
         }

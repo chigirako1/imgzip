@@ -9,6 +9,15 @@ namespace MyZipper
 {
     public class Util
     {
+        public static string FormatFileSize(long bytes)
+        {
+            var unit = 1024;
+            if (bytes < unit) { return $"{bytes} B"; }
+
+            var exp = (int)(Math.Log(bytes) / Math.Log(unit));
+            return $"{bytes / Math.Pow(unit, exp):F2} {("KMGTPE")[exp - 1]}B";
+        }
+
         static public string GetUploadDate(string path)
         {
             Regex r = new Regex(@"(\d+) \d+ \d+-\d+-\d+");
@@ -105,15 +114,11 @@ namespace MyZipper
 
         static public void E(string s, params Object[] args)
         {
-            //Console.Error.Write("[E] ");
-            //Console.Error.WriteLine(s, args);
             LogOut("[E] ", s, args);
         }
 
         static public void W(string s, params Object[] args)
         {
-            //Console.Error.Write("[W] ");
-            //Console.Error.WriteLine(s, args);
             LogOut("[W] ", s, args);
         }
 
@@ -121,16 +126,12 @@ namespace MyZipper
         {
             if (Dbg)
             { 
-                //Console.Error.Write("[D] ");
-                //Console.Error.WriteLine(s, args);
                 LogOut("[D] ", s, args);
             }
         }
 
         static public void I(string s, params Object[] args)
         {
-            //Console.Error.Write("[I] ");
-            //Console.Error.WriteLine(s, args);
             LogOut("[I] ", s, args);
         }
 
@@ -146,6 +147,16 @@ namespace MyZipper
         {
             Console.Error.Write(prefix);
             Console.Error.WriteLine(s, args);
+        }
+
+        static public void LogOutNoCRLF(string s)
+        {
+            Console.Error.Write(s);
+        }
+
+        static public void LogOut(string s)
+        {
+            Console.Error.WriteLine(s);
         }
     }
 

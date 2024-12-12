@@ -8,24 +8,24 @@ namespace MyZipper
     {
         static void Main(string[] args)
         {
+            Log.I("##############################################>>>");
             var config = new Config(args);
 
-            Log.I("##############################################");
             Log.I("'{0}'", config.Inputpath);
             Log.I("↓");
             var dirname = Path.GetDirectoryName(config.OutputPath);
             dirname = Path.GetFileName(dirname);
-            Log.I($"'{dirname}'");
             var fn = Path.GetFileNameWithoutExtension(config.OutputPath);
-            Log.I($"'{fn}'");
+            Log.I($"'{fn}'('{dirname}')");
             Log.V("{0}({1})", config.TargetScreenSize, config.GetCanvasScreenRatio());
-            Log.I("##############################################");
 
             var piclist = new PicInfoList(config.Inputpath, config);
             if (piclist.PicInfos.Count == 0) {
                 Log.E("処理対象のファイルが存在しません。:'{0}'", config.Inputpath);
                 Environment.Exit(1);
             }
+
+            Log.I($"cnt={piclist.PicInfos.Count}");
 
             try
             {
@@ -50,6 +50,9 @@ namespace MyZipper
                 Log.E(ex.ToString());
                 Environment.Exit(1);
             }
+            Log.LogOutNoCRLF("");
+            Log.I("<<<##############################################");
+            Log.I("");
         }
     }
 }
