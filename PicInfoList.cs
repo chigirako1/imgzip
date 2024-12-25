@@ -119,6 +119,11 @@ namespace MyZipper
             }
         }
 
+        public string GetDirectoryName()
+        {
+            return System.IO.Path.GetDirectoryName(Path);
+        }
+            
         public float GetAspectRatio()
         {
             float ratio;
@@ -507,18 +512,74 @@ namespace MyZipper
             Log.V("-------------------");
         }
 
-        public PicInfoList(PicInfoList picinfolist, int idx, int cnt)
+        public PicInfoList(PicInfoList picinfolist, int idx, ref int cnt)
         {
+            Config = picinfolist.Config;
+
             var count = cnt;
             if (idx + count > picinfolist.PicInfos.Count)
-            {
+            {   //残りが指定数以下の場合
                 count = picinfolist.PicInfos.Count - idx;
+            }
+            else if (Config.Mode != Mode.Twt)
+            {
+                //ディレクトリ内のファイル数が指定数を超えていればそこで打ち切り
+                var same_dir_file_cnt = 0;
+                var file_cnt = 0;
+                var dirname1 = "";
+                for (int i = idx; i < idx + cnt; i++)
+                {
+                    file_cnt++;
+
+                    var dirname2 = picinfolist.PicInfos[i].GetDirectoryName();
+                    if (dirname1 == dirname2)
+                    {
+                        same_dir_file_cnt++;
+                    }
+                    else
+                    {
+                        if (same_dir_file_cnt > Config.SeparateFileNumberMax)
+                        {
+                            count = file_cnt - 1;
+                            Log.I($"ここで打ち切り:'{picinfolist.PicInfos[i].Path}':count={count}");
+                            break;
+                        }
+                        dirname1 = dirname2;
+                        same_dir_file_cnt = 2;
+                    }
+                }
+
+                if (count < cnt)
+                {
+                    //
+                }
+                else
+                {
+                    //指定数を超えても同一ディレクトリの場合は継続する
+                    var last_idx = idx + cnt - 1;
+                    var dir1 = picinfolist.PicInfos[last_idx].GetDirectoryName();
+                    Log.D($"dir1={dir1}");
+                    for (int i = last_idx + 1; i < picinfolist.PicInfos.Count; i++)
+                    {
+                        var dir2 = picinfolist.PicInfos[i].GetDirectoryName();
+                        if (dir1 == dir2)
+                        {
+                            count++;
+                        }
+                        else
+                        {
+                            Log.D($"dir2={dir2}");
+                            break;
+                        }
+                    }
+                }
+                cnt = count;
             }
             Log.D($"idx={idx}, cnt={cnt}, count={count}, *={picinfolist.PicInfos.Count}");
 
             PicInfos = picinfolist.PicInfos.GetRange(idx, count);
-            Config = picinfolist.Config;
 
+            //?bug?
             MinWidth = picinfolist.MinWidth;
             MinHeight = picinfolist.MinHeight;
             MaxWidth = picinfolist.MaxWidth;

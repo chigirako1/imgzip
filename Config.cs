@@ -105,6 +105,7 @@ namespace MyZipper
 
         public int SeparateFileNumberThreashold{ get; private set; }
         public int SeparateFileNumber { get; private set; }
+        public int SeparateFileNumberMax { get; private set; }
 
         public bool LsCompositeLs { get; private set; }
         public bool Quiet { get; private set; }
@@ -304,13 +305,14 @@ namespace MyZipper
                         Log.I("sort={0}", Sort);
                         break;
                     case "separate":
-                        Regex rgx = new Regex(@"(\d+):(\d+)");
-                        Match match = rgx.Match(opt[1]);
+                        var rgx = new Regex(@"(\d+):(\d+):(\d+)");
+                        var match = rgx.Match(opt[1]);
                         if (match.Success)
                         {
 
                             SeparateFileNumberThreashold = int.Parse(match.Groups[1].Value);
                             SeparateFileNumber = int.Parse(match.Groups[2].Value);
+                            SeparateFileNumberMax = int.Parse(match.Groups[3].Value);
                             Log.I("sepa={0}:{1}", SeparateFileNumberThreashold, SeparateFileNumber);
                         }
                         else
