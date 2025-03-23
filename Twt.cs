@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace MyZipper
@@ -39,6 +40,41 @@ namespace MyZipper
         {
             var twtid = Path.GetFileName(path);
             return twtid;
+        }
+
+        static public string GetUploadDate(string path)
+        {
+            {
+                var r = new Regex(@"(\d+) \d+ \d+-\d+-\d+");
+                var m = r.Match(path);
+                if (m.Success)
+                {
+                    var d = GetUploadDateTime(m.Groups[1].Value);
+                    return d.ToString();
+                }
+            }
+
+            //https://twitter.com/TwitterDev/status/17150x26x04x9820679
+            {
+                var r = new Regex(@"\d{8}\s+(\d+)");
+                var m = r.Match(path);
+                if (m.Success)
+                {
+                    var twt_id = m.Groups[1].Value;
+                    Log.D($"{twt_id}");
+                    var d = GetUploadDateTime(twt_id);
+                    return d.ToString();
+                }
+             }
+
+            return "";
+        }
+
+        static public DateTime GetUploadDateTime(string tweet_id_str)
+        {
+            var tweet_id = long.Parse(tweet_id_str);
+            var d = Twt.GetDateTime(tweet_id);
+            return d;
         }
     }
 }

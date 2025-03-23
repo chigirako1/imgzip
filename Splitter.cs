@@ -32,7 +32,7 @@ namespace MyZipper.src
             var img = p.GetImage();
             if (img.Width < img.Height)
             {
-                Log.W(string.Format("skip file:\"{0}\"{1}x{2}", p.Path, img.Width, img.Height));
+                Log.W(string.Format("skip file:\"{0}\"{1}x{2}", p.InputPath, img.Width, img.Height));
                 return;
             }
             var canvasWidth = img.Width / _config.SplitLR;
@@ -46,9 +46,9 @@ namespace MyZipper.src
                 Rectangle srcRect = new Rectangle(canvasWidth * i, 0, canvasWidth, canvasHeight);
                 g.DrawImage(img, dstRect, srcRect, GraphicsUnit.Pixel);
 
-                var srcDirname = Path.GetDirectoryName(p.Path);
+                var srcDirname = Path.GetDirectoryName(p.InputPath);
                 var dstDirname = srcDirname + "new";
-                var srcFilename = Path.GetFileNameWithoutExtension(p.Path);
+                var srcFilename = Path.GetFileNameWithoutExtension(p.InputPath);
                 int renban;
                 if (true)
                 {

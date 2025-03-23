@@ -20,12 +20,14 @@ namespace MyZipper
         private static readonly Brush FONT_BRUSH = Brushes.Cyan;
         private static readonly Brush FONT_BRUSH_I = Brushes.Magenta;
 
-        private static readonly string FONT_NAME = "MS UI Gothic";
+        private static readonly string FONT_NAME = "Yu Gotic UI";//"MS UI Gothic";
         private static readonly int FONT_SIZE = 40;
         private static readonly int FONT_SIZE2 = 20;
 
         private readonly Config _config;
         private readonly CoordinateCalculator _coordinateCalculator;
+
+        private static readonly string TEXT_FILE_ENTRY_NAME = "zzz.txt";
 
 #if DEBUG
         const FileMode FILEMODE = FileMode.Create;//デバッグ時は上書きする（消すの面倒なので
@@ -95,6 +97,24 @@ namespace MyZipper
         }
 #endif
 
+        public void UpdateRecord()
+        {
+            if (_config.UpdateDB)
+            {
+                switch (_config.DataSourceType)
+                {
+                    case DATA_SOURCE_TYPE.DATA_SOURCE_PXV:
+                        var pxvid = Pxv.GetPxvID(_config.Inputpath);
+                        Sqlite.UpdatePxvRecord_ZippedAt(pxvid);
+                        break;
+                    case DATA_SOURCE_TYPE.DATA_SOURCE_TWT:
+                    default:
+                        break;
+                }
+
+            }
+        }
+
         // --------------------------------------------------------------------
         // 
         // --------------------------------------------------------------------
@@ -127,12 +147,12 @@ namespace MyZipper
             {
                 using (var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
                 {
-                    PassThrough(piclist, archive);
+                    PassThroughCore(piclist, archive);
                 }
             }
         }
 
-        private void PassThrough(PicInfoList piclist, ZipArchive archive)
+        private void PassThroughCore(PicInfoList piclist, ZipArchive archive)
         {
             Log.D(this._config.Inputpath);
 
@@ -151,21 +171,32 @@ namespace MyZipper
             var screen_max = Math.Max(_config.TargetScreenSize.Width, _config.TargetScreenSize.Height); 
             foreach (var p in piclist.PicInfos)
             {
-                Log.D(p.Path);
+                Log.D(p.InputPath);
                 
-                if (p.PicSize.Width > screen_max || p.PicSize.Height > screen_max || p.Path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                if (p.PicSize.Width > screen_max ||
+                    p.PicSize.Height > screen_max ||
+                    p.InputPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                    )
                 {
-                    Log.I($"WxH:{p.PicSize.Width}x{p.PicSize.Height}'{p.Path}'");
+                    //var fn = Path.GetFileName(p.Path);
+                    //var dn = Path.GetDirectoryName(p.Path);
+                    var (dn, fn) = Util.SplitPath(p.InputPath);
+                    Log.I($"[変換] '{fn}({dn})' \t({p.PicSize.Width}x{p.PicSize.Height})");
 
                     var img = p.GetImage();
                     var bs = GetResizeImageBytes(p, img);
-                    var entryname = p.Path.Replace(root, "");
+                    var entryname = p.InputPath.Replace(root, "");
+                    //Log.I($"**entryname='{entryname}'");
                     entryname = Util.GetTitle(entryname) + ".jpg";
+                    //Log.I($"p.Path='{p.Path}'");
+                    //Log.I($"root='{root}'");
+                    //Log.I($"entryname='{entryname}'");
                     AddZipEntry(archive, entryname, bs);
                 }
                 else
                 {
-                    Zip.CreateEntryFromFile(archive, root, p.Path);
+                    //Log.I($"[xxx] root='{root}', path='{p.Path}'");
+                    Zip.CreateEntryFromFile(archive, root, p.InputPath);
                 }
             }
         }
@@ -216,41 +247,21 @@ namespace MyZipper
                         OutputFilesToArchiveFile(piclist, archive);
                     }
 
-                    AddZipTxtEntry(archive, "zzz.txt", "test txt zip");
-                    /*MemoryStream memstr = new MemoryStream();
-                    StreamWriter sw = new StreamWriter(memstr);
-                    sw.Write("test txt zip");
-                    sw.Flush();
-                    memstr.Position = 0;
-                    archive.Entries.Add(memstr, "zzz_sample.txt");
-                    memstr.Close();*/
+                    string outtext = "";
+                    foreach (var pic in piclist.PicInfos)
+                    {
+                        outtext += $"{pic.ZipEntryNameOutput}\t{pic.InputPath}\t{pic.FileSize}\t{pic.PicSize.Width}\t{pic.PicSize.Height}";
+                        outtext += Environment.NewLine;
+                    }
+                    AddZipTxtEntry(archive, TEXT_FILE_ENTRY_NAME, outtext);
                 }
             }
         }
 
 
-        private SplitScreenNumber GetSplitNo(int count)
-        {
-            int max = 9;
-            SplitScreenNumber splitNo;
-
-            splitNo.Col = Math.Min(max, (int)Math.Sqrt(count));
-            splitNo.Row = Math.Min(max, (int)Math.Sqrt(count));
-            if (splitNo.Col * splitNo.Row < count)
-            {
-                splitNo.Row++;
-            }
-            if (splitNo.Col * splitNo.Row < count)
-            {
-                splitNo.Col++;
-            }
-
-            return splitNo;
-        }
-
         private void OutputThumbnailListToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
-            var splitNo = GetSplitNo(piclist.PicInfos.Count);
+            var splitNo = SplitScreenNumber.GetSplitNo(piclist.PicInfos.Count);
 
             bool samedirlimit = false;
             if (piclist.PicInfos.Count < splitNo.Row * splitNo.Col)
@@ -284,57 +295,23 @@ namespace MyZipper
 
         private void OutputGroupThumbnail_sub(List<PicInfo> picinfos, ZipArchive archive, int i)
         {
-            var splitNo = GetSplitNo(picinfos.Count);
+            var splitNo = SplitScreenNumber.GetSplitNo(picinfos.Count);
             byte[] bs = GetCombineImage(picinfos, splitNo, true);
             AddZipEntry(archive, $"{i:D3} !.jpg", bs);
             picinfos.Clear();
 
         }
 
-        private void OutputGroupThumbnail(PicInfoList piclist, ZipArchive archive)
-        {
-            var dic = new Dictionary<string, List<PicInfo>>();
-            foreach (var p in piclist.PicInfos)
-            {
-                var dirname = p.GetDirectoryName();
-
-                if (dic.ContainsKey(dirname))
-                {
-                }
-                else
-                {
-                    dic[dirname] = new List<PicInfo>();
-                }
-                dic[dirname].Add(p);
-            }
-
-            int i = 0;
-            foreach (var d in dic)
-            {
-                var pic = d.Value;
-                if (pic.Count > 4)
-                {
-                    i++;
-                    OutputGroupThumbnail_sub(pic, archive, i);
-                }
-            }
-        }
-
         private void OutputFilesToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
             if (piclist.PicInfos.Count >= _config.IdxOutThreshold)
             {
-                if (_config.CoverType == TopPageIdxImage.ALL_IMAGE || _config.CoverType == TopPageIdxImage.GROUP)
+                if (//_config.Mode != Mode.Twt &&
+                    (_config.CoverType == TopPageIdxImage.ALL_IMAGE ||
+                    _config.CoverType == TopPageIdxImage.GROUP))
                 {
-                    //Log.LogOut("cover out >");
                     //先頭にサムネイルをまとめた画像を追加する
                     OutputThumbnailListToArchiveFile(piclist, archive);
-                    //Log.LogOut("cover out <");
-                }
-                
-                if (_config.CoverType == TopPageIdxImage.GROUP)
-                {
-                    //OutputGroupThumbnail(piclist, archive);
                 }
             }
 
@@ -348,28 +325,33 @@ namespace MyZipper
 
             int heightSum = 0;
 
+            Log.LogOutNoCRLF(">");
             foreach (var p in piclist.PicInfos)
             {
+                //進捗表示
                 if (cnt % 100 == 0)
                 {
                     Log.LogOutNoCRLF($".{cnt:D3}");
                 }
                 else if (cnt % 50 == 0)
                 {
-                    //Log.LogOutNoCRLF(".");
+                    Log.LogOutNoCRLF(".");
                 }
 
-                var dirname = p.GetDirectoryName();
-                if (dic.ContainsKey(dirname))
+                if (_config.Mode != Mode.Twt && _config.CoverType == TopPageIdxImage.GROUP)
                 {
+                    var dirname = p.GetDirectoryName();
+                    if (dic.ContainsKey(dirname))
+                    {
+                    }
+                    else
+                    {
+                        cnt++;
+                        dic[dirname] = (new List<PicInfo>(), cnt);
+                    }
+                    var a = dic[dirname];
+                    a.Item1.Add(p);
                 }
-                else
-                {
-                    cnt++;
-                    dic[dirname] = (new List<PicInfo>(), cnt);
-                }
-                var a = dic[dirname];
-                a.Item1.Add(p);
 
                 if (p.PicSize.Width <= p.PicSize.Height)
                 {   // 縦長
@@ -465,23 +447,27 @@ namespace MyZipper
                 OutCombineImageLS(lsPicInfos, archive, entryname, false);
             }
 
-            if (_config.IsForce2P && cnt <= 1)
+            if (_config.IsForce2P &&
+                (cnt == 1 || piclist.PicInfos.Count == 1)
+                )
             {
                 //AddEmptyImage(archive);
                 AddEmptyImage(piclist, archive, ref cnt);
             }
-            Log.LogOut("");
+            Log.LogOut("<");
 
-            foreach (var d in dic)
+            if (dic.Count > 1)
             {
-                var pic = d.Value;
-                if (pic.Item1.Count > 4)
+                foreach (var d in dic)
                 {
-                    Log.LogOutNoCRLF(".");
-                    OutputGroupThumbnail_sub(pic.Item1, archive, pic.Item2);
+                    var pic = d.Value;
+                    if (pic.Item1.Count > 4)
+                    {
+                        OutputGroupThumbnail_sub(pic.Item1, archive, pic.Item2);
+                    }
                 }
             }
-            Log.LogOut("");
+            Log.LogOut("*");
         }
 
         private void OutputFilesToArchiveFileForWin(PicInfoList piclist, ZipArchive archive)
@@ -497,8 +483,9 @@ namespace MyZipper
         private string MakeEntryName(ref int cnt, List<PicInfo> picInfos, string postAppd)
         {
             cnt++;
-            //string name = cnt.ToString("D3") + " [" + picInfos.Count.ToString() + "]" + postAppd + ".jpg";
             string name = $"{cnt:D3} [{picInfos.Count}]{postAppd}.jpg";
+
+            picInfos[0].ZipEntryNameOutput = name ;
 
             return name;
         }
@@ -588,6 +575,8 @@ namespace MyZipper
                 entryname = "Rot-" + entryname;
             }
             AddZipEntry(archive, entryname, bs);
+
+            p.ZipEntryNameOutput = entryname;
             p.IsDone = true;
         }
 
@@ -604,6 +593,8 @@ namespace MyZipper
                 entryname = "Rot-" + entryname;
             }
             AddZipEntry(archive, entryname, bs);
+
+            p.ZipEntryNameOutput = entryname;
             p.IsDone = true;
         }
 
@@ -712,18 +703,10 @@ namespace MyZipper
                 var drawY = y;
                 string str;
 
-                /*long fsum = 0;
-                foreach (var p in picInfos)
-                {
-                    fsum += p.FileSize;
-                }*/
                 var fsum = picInfos.Sum(d => d.FileSize);
                 var favg = (long)picInfos.Average(d => d.FileSize);
 
-                //str = string.Format($"{_config.Inputpath}[sum{_config.FileSizeSum/1024}kb/avg{_config.FileSizeSum / picInfos.Count/1024}kb]");
-                //str = string.Format($"{_config.Inputpath}[sum{fsum / 1024}kb/avg{fsum / picInfos.Count / 1024}kb]");
-                //str = string.Format($"[{picInfos.Count} files/合計={Util.FormatFileSize(fsum)}/平均={Util.FormatFileSize(fsum / picInfos.Count)}]{_config.Inputpath}");
-                str = string.Format($"[{picInfos.Count} files/合計={Util.FormatFileSize(fsum)}/平均={Util.FormatFileSize(favg)}]{_config.Inputpath}");
+                str = string.Format($"[{picInfos.Count} files|合計:{Util.FormatFileSize(fsum)}|平均:{Util.FormatFileSize(favg)}]{_config.Inputpath}");
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
@@ -745,7 +728,8 @@ namespace MyZipper
                         g.DrawString(t_row.ToString(), fnt, fcolor, x, drawY);
                         break;
                     default:
-                        // do nothing
+                        var str2 = picInfos[0].GetDirectoryName();
+                        g.DrawString(str2, fnt, fcolor, x, drawY);
                         break;
                 }
 
@@ -781,6 +765,7 @@ namespace MyZipper
 
                 if (y >= canvasHeight)
                 {
+                    //Log.LogOut("表示領域がもうないのでサムネイル終了");
                     break;
                 }
 
@@ -925,11 +910,12 @@ namespace MyZipper
             {
                 var fsize = FONT_SIZE2;
                 var fcolor = FONT_BRUSH;
-                var fnt = new Font("MS UI Gothic", fsize);
+                var fnt = new Font(FONT_NAME, fsize);
                 var drawY = y;
 
                 string str;
-                str = string.Format("{0,3}:{1}{2}", p.Number, p.GetTitle(), p.GetExt());
+                //str = string.Format("{0,3}:{1}{2}", p.Number, p.GetTitle(), p.GetExt());
+                str = string.Format("{0,3}:{1}", p.Number, p.GetTitle());
                 g.DrawString(str, fnt, fcolor, x, drawY);
                 drawY += fsize;
 
@@ -1009,6 +995,13 @@ namespace MyZipper
                 writer.Write(text);
                 Log.V(entryName);
             }
+            /*MemoryStream memstr = new MemoryStream();
+            StreamWriter sw = new StreamWriter(memstr);
+            sw.Write("test txt zip");
+            sw.Flush();
+            memstr.Position = 0;
+            archive.Entries.Add(memstr, "zzz_sample.txt");
+            memstr.Close();*/
         }
 
         private void AddZipEntry(ZipArchive archive, string entryName, byte[] bs)

@@ -11,13 +11,16 @@ namespace MyZipper
             Log.I("##############################################>>>");
             var config = new Config(args);
 
-            Log.I("'{0}'", config.Inputpath);
+            Log.I("------------------");
+            Log.I("処理対象ディレクトリ：'{0}'", config.Inputpath);
+            Log.I("------------------");
             Log.I("↓");
-            var dirname = Path.GetDirectoryName(config.OutputPath);
-            dirname = Path.GetFileName(dirname);
+            //var dirname = Path.GetDirectoryName(config.OutputPath);
+            //dirname = Path.GetFileName(dirname);
+            var dirname = Util.GetParentDir(config.OutputPath);
             var fn = Path.GetFileNameWithoutExtension(config.OutputPath);
-            Log.I($"'{fn}'('{dirname}')");
-            Log.V("{0}({1})", config.TargetScreenSize, config.GetCanvasScreenRatio());
+            Log.I($"出力ファイル名：'{fn}' ('{dirname}')");
+            //Log.I($"{config.TargetScreenSize}({config.GetCanvasScreenRatio()})"); //Sizeをstringにすると"{width=99...}"形式になるので失敗
 
             var piclist = new PicInfoList(config.Inputpath, config);
             if (piclist.PicInfos.Count == 0) {
@@ -25,7 +28,7 @@ namespace MyZipper
                 Environment.Exit(1);
             }
 
-            Log.I($"cnt={piclist.PicInfos.Count}");
+            Log.I($"ファイル数={piclist.PicInfos.Count}, ファイルサイズ計={Util.FormatFileSize(piclist.FileSizeSum)}, 平均={Util.FormatFileSize(piclist.FileSizeAvg())}");
 
             try
             {
@@ -33,11 +36,13 @@ namespace MyZipper
                 {
                     var zipper = new Zipper(config);
                     zipper.PassThrough(piclist);
+                    zipper.UpdateRecord();
                 }
                 else if (config.SplitLR == 0)
                 {
                     var zipper = new Zipper(config);
                     zipper.OutputCombine(piclist);
+                    zipper.UpdateRecord();
                 }
                 else
                 {

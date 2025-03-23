@@ -18,6 +18,19 @@ namespace MyZipper
         MAX
     }
 
+    public enum DATA_SOURCE_TYPE
+    {
+        DATA_SOURCE_UNKNOWN,
+        DATA_SOURCE_PXV,
+        DATA_SOURCE_TWT,
+        DATA_SOURCE_NJE,
+        DATA_SOURCE_WEB,
+        DATA_SOURCE_MIX,
+        DATA_SOURCE_GROUP,
+
+        DATA_SOURCE_MAX
+    }
+
     //sort
     enum Sort
     {
@@ -57,6 +70,7 @@ namespace MyZipper
 
         public Mode Mode { get; private set; }
         public Sort Sort { get; private set; }
+        public DATA_SOURCE_TYPE DataSourceType { get; private set; }
 
         // input
         public string Inputpath { get; private set; }
@@ -103,6 +117,8 @@ namespace MyZipper
         public bool IsCrop { get; private set; }
         public bool IsShrink { get; private set; }
 
+        public bool UpdateDB { get; private set; }
+
         public int SeparateFileNumberThreashold{ get; private set; }
         public int SeparateFileNumber { get; private set; }
         public int SeparateFileNumberMax { get; private set; }
@@ -140,6 +156,7 @@ namespace MyZipper
 
             Mode = Mode.Auto;
             Sort = Sort.AUTO;
+            DataSourceType = GetSourceType(inputpath);
 
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
@@ -163,6 +180,7 @@ namespace MyZipper
             IsCrop = false;
             LsCompositeLs = false;
             IsShrink = true;
+            UpdateDB = false;
 
             SeparateFileNumberThreashold = 0;
             SeparateFileNumber = 0;
@@ -233,6 +251,10 @@ namespace MyZipper
                 var opt = arg.Split('=');
                 switch (opt[0])
                 {
+                    case "UpdateDB":
+                        UpdateDB = true;
+                        Log.I($"UpdateDB={UpdateDB}");
+                        break;
                     case "useOrigName":
                         UseOrigName = true;
                         Log.I("UseOrigName={0}", UseOrigName);
@@ -313,7 +335,7 @@ namespace MyZipper
                             SeparateFileNumberThreashold = int.Parse(match.Groups[1].Value);
                             SeparateFileNumber = int.Parse(match.Groups[2].Value);
                             SeparateFileNumberMax = int.Parse(match.Groups[3].Value);
-                            Log.I("sepa={0}:{1}", SeparateFileNumberThreashold, SeparateFileNumber);
+                            Log.I("sepa={0}:{1}:{2}", SeparateFileNumberThreashold, SeparateFileNumber, SeparateFileNumberMax);
                         }
                         else
                         {
@@ -392,5 +414,25 @@ namespace MyZipper
                 return Pxv.GetPxvID(Inputpath);
             }
         }
+        private DATA_SOURCE_TYPE GetSourceType(string path)
+        {
+            DATA_SOURCE_TYPE result;
+
+            if (path.Contains("PxDl") || path.Contains("/pxv/"))
+            {
+                result = DATA_SOURCE_TYPE.DATA_SOURCE_PXV;
+            }
+            else if (path.Contains("Twitter") || path.Contains("/twt/"))
+            {
+                result = DATA_SOURCE_TYPE.DATA_SOURCE_TWT;
+            }
+            else
+            {
+                result = DATA_SOURCE_TYPE.DATA_SOURCE_UNKNOWN;
+            }
+
+            return result;
+        }
+
     }
 }

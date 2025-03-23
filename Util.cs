@@ -18,20 +18,17 @@ namespace MyZipper
             return $"{bytes / Math.Pow(unit, exp):F2} {("KMGTPE")[exp - 1]}B";
         }
 
-        static public string GetUploadDate(string path)
+        static public (string, string) SplitPath(string path)
         {
-            Regex r = new Regex(@"(\d+) \d+ \d+-\d+-\d+");
-            Match m = r.Match(path);
-            if (m.Success)
-            {
-                var tweet_id = long.Parse(m.Groups[1].Value);
-                //Log.I($"tweet_id={tweet_id}");
+            var dn = Path.GetDirectoryName(path);
+            var fn = Path.GetFileName(path);
+            return (dn, fn);
+        }
 
-                var d = Twt.GetDateTime(tweet_id);
-                return d.ToString();
-            }
-
-            return "";
+        static public string GetParentDir(string path)
+        {
+            var dirname = Path.GetDirectoryName(path);
+            return Path.GetFileName(dirname);
         }
 
         static public string GetEntryName(string path)
@@ -51,6 +48,7 @@ namespace MyZipper
 
             return Path.Combine(dirname, fn);
         }
+
         static public string GetExt(string path)
         {
             return Path.GetExtension(path);
@@ -58,9 +56,6 @@ namespace MyZipper
 
         static public string GetZipPath(string path, int cnt, int totalNo)
         {
-
-
-
             var dirname = Path.GetDirectoryName(path);
             
             var fn = Path.GetFileNameWithoutExtension(path);
@@ -109,7 +104,11 @@ namespace MyZipper
     public class Log
     {
         public static bool Quiet;
+#if DEBUG
+        public static bool Dbg = true;
+#else
         public static bool Dbg = false;
+#endif
         public static bool Verbose = false;
 
         static public void E(string s, params Object[] args)
@@ -164,12 +163,9 @@ namespace MyZipper
     {
         static public void CreateEntryFromFile(ZipArchive archive, string rootpath, string infilepath)
         {
-            var subdir = infilepath.Replace(rootpath, "");
-            Log.V("subidr:" + subdir);
-            //var e = archive.CreateEntry(subdir);
-
-            //var filename = Path.GetFileName(fullpath);
-            /*var entry = */archive.CreateEntryFromFile(infilepath, subdir);
+            //Path.DirectorySeparatorChar
+            var subdir = infilepath.Replace(rootpath + Path.DirectorySeparatorChar, "");//tekitou
+            archive.CreateEntryFromFile(infilepath, subdir);
         }
     }
 }

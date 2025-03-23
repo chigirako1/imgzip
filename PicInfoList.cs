@@ -48,6 +48,24 @@ namespace MyZipper
         {
             return string.Format("<{0}:{1}>", Col, Row);
         }
+        static public SplitScreenNumber GetSplitNo(int count)
+        {
+            int max = 9;
+            SplitScreenNumber splitNo;
+
+            splitNo.Col = Math.Min(max, (int)Math.Sqrt(count));
+            splitNo.Row = Math.Min(max, (int)Math.Sqrt(count));
+            if (splitNo.Col * splitNo.Row < count)
+            {
+                splitNo.Row++;
+            }
+            if (splitNo.Col * splitNo.Row < count)
+            {
+                splitNo.Col++;
+            }
+
+            return splitNo;
+        }
     }
 
     internal class PicInfo
@@ -57,12 +75,13 @@ namespace MyZipper
 
         public int Number { get; private set; }
 
-        public string Path { get; private set; }
+        public string InputPath { get; private set; }
         public long FileSize { get; private set; }
         public Size PicSize { get; private set; }
         public bool IsDone { get; set; }
         public string ZipEntryName { get; set; }
         public string ZipEntryNameOrig { get; set; }
+        public string ZipEntryNameOutput { get; set; }
         public bool IsRotated { get; set; }
 
         public PicInfo(int no, FileInfo fi, Config config)
@@ -85,13 +104,13 @@ namespace MyZipper
             Number = no;
             _config = config;
 
-            Path = fullname;
+            InputPath = fullname;
             FileSize = length;
 
             string ent;
             if (config.UseOrigName)
             {
-                ent = Path;
+                ent = InputPath;
             }
             else
             {
@@ -109,19 +128,19 @@ namespace MyZipper
             {
                 using (var archive = ZipFile.OpenRead(_config.Inputpath))
                 {
-                    var ent = archive.GetEntry(Path);
+                    var ent = archive.GetEntry(InputPath);
                     return Image.FromStream(ent.Open());
                 }
             }
             else
             {
-                return Image.FromFile(Path);
+                return Image.FromFile(InputPath);
             }
         }
 
         public string GetDirectoryName()
         {
-            return System.IO.Path.GetDirectoryName(Path);
+            return System.IO.Path.GetDirectoryName(InputPath);
         }
             
         public float GetAspectRatio()
@@ -142,18 +161,32 @@ namespace MyZipper
 
         public string GetTitle()
         {
-            var title = Util.GetTitle(Path);
-            return title;
+            bool flg = true;
+            if (flg)
+            {
+                var title = Util.GetTitle(InputPath);
+                return title;
+            }
+            else
+            {
+                //InputPathがフルパスなのに_config.Inputpathは相対パスなのでうまくいかない。
+                //_config.Inputpathをフルパスにしておく？
+                var title = InputPath.Replace(_config.Inputpath + Path.DirectorySeparatorChar, "");
+                Log.W($"InputPath='{InputPath}'");
+                Log.W($"cnfg='{_config.Inputpath + Path.DirectorySeparatorChar}'");
+                Log.W($"title='{title}'");
+                return title;
+            }
         }
 
         public string GetExt()
         {
-            return Util.GetExt(Path);
+            return Util.GetExt(InputPath);
         }
 
         public string GetUploadDate()
         {
-            var date = Util.GetUploadDate(Path);
+            var date = Twt.GetUploadDate(InputPath);
             return date;
         }
 
@@ -267,20 +300,20 @@ namespace MyZipper
             var si = GetSplitScreenInfo();
             Log.V("{0,3}:'{1}'({2,4}x{3,4}),\tratio={4:f4},\t{5}\t{6}",
                 idx, 
-                Path, 
+                InputPath, 
                 PicSize.Width, 
                 PicSize.Height, 
                 GetAspectRatio(),
                 r,
                 si
                 );
-            if (!Path.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase))
+            if (!InputPath.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase))
             {
-                Log.W($"not jpg:{Path}");
+                Log.W($"非JPG:{InputPath}");
             }
             else if (FileSize > 1024*1024)
             {
-                Log.W($"filesize huge:{Util.FormatFileSize(FileSize)}[{PicSize.Width}x{PicSize.Height}]'{Path}'");
+                Log.W($"ファイルサイズ大:{Util.FormatFileSize(FileSize)}[{PicSize.Width}x{PicSize.Height}]'{InputPath}'");
             }
         }
     }
@@ -295,6 +328,11 @@ namespace MyZipper
         public int MaxWidth { get; private set; }
         public int MaxHeight { get; private set; }
         public long FileSizeSum { get; private set; }
+        
+        public long FileSizeAvg()
+        {
+            return FileSizeSum / PicInfos.Count;
+        }
 
         public PicInfoList(string path, Config config)
         {
@@ -308,8 +346,6 @@ namespace MyZipper
             }
             else
             {// zipとして扱う
-
-                // 一時ディレクトリに展開して処理するのはなんかいや
                 List<String> filelist = GetFileListFromZip(path);
                 SetPicInfos(filelist, true);
             }
@@ -326,7 +362,7 @@ namespace MyZipper
                     );
 
             var filelist = new List<string>(files);
-            if (Config.Mode == Mode.Pxv)
+            if (Config.Mode == Mode.Pxv || Config.Mode == Mode.PassThrough)
             {
                 switch (Config.Sort)
                 {
@@ -337,9 +373,9 @@ namespace MyZipper
                         filelist.Sort(new PxvTitleComparer(1));
                         break;
                     case Sort.PXV_ARTWORK_ID:
+                        //TODO: artwork idでソート？
                     case Sort.AUTO:
                     default:
-                        //TODO: artwork idでソート？
                         filelist.Sort(new NaturalStringComparer());
                         break;
                 }
@@ -348,8 +384,7 @@ namespace MyZipper
             {
                 filelist.Sort(new NaturalStringComparer());
             }
-            
-
+           
             return filelist;
         }
 
@@ -521,7 +556,7 @@ namespace MyZipper
             {   //残りが指定数以下の場合
                 count = picinfolist.PicInfos.Count - idx;
             }
-            else if (Config.Mode != Mode.Twt)
+            else if (Config.Mode != Mode.Twt && Config.Mode != Mode.PassThrough)
             {
                 //ディレクトリ内のファイル数が指定数を超えていればそこで打ち切り
                 var same_dir_file_cnt = 0;
@@ -541,7 +576,7 @@ namespace MyZipper
                         if (same_dir_file_cnt > Config.SeparateFileNumberMax)
                         {
                             count = file_cnt - 1;
-                            Log.I($"ここで打ち切り:'{picinfolist.PicInfos[i].Path}':count={count}");
+                            Log.I($"ここで打ち切り:'{picinfolist.PicInfos[i].InputPath}':count={count}");
                             break;
                         }
                         dirname1 = dirname2;

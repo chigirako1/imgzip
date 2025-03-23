@@ -11,7 +11,11 @@ namespace MyZipper
 {
     public class Sqlite
     {
+#if DEBUG
+        private const string DATA_SRC_PATH = @"D:\export-done\test\out\development.sqlite3";
+#else
         private const string DATA_SRC_PATH = @"D:\data\src\ror\myapp\db\development.sqlite3";
+#endif
 
         public static void GetTwtUserInfo(string twitter_id, TwtRow row)
         {
@@ -77,6 +81,31 @@ namespace MyZipper
                         {
                             Log.D($"no read '{pxvid}'");
                         }
+                    }
+                }
+            }
+        }
+
+        public static void UpdatePxvRecord_ZippedAt(int pxv_user_id)
+        {
+            using (var cn = GetSQLiteConnection())
+            {
+                cn.Open();
+                using (var cmd = new SQLiteCommand(cn))
+                {
+                    //cmd.CommandText = $"SELECT * FROM artists WHERE pxvid = '{pxvid}'";
+                    var tbl_name = "artists";
+                    var col_name = "zipped_at";
+                    var col_name_cond = "pxvid";
+                    cmd.CommandText = $"UPDATE {tbl_name} set {col_name} = CURRENT_TIMESTAMP WHERE {col_name_cond} = {pxv_user_id}";
+                    var result = cmd.ExecuteNonQuery();
+                    if (result > 0)
+                    {
+                        Log.D($"更新成功'{pxv_user_id}'");
+                    }
+                    else
+                    {
+                        Log.D($"更新失敗'{pxv_user_id}'");
                     }
                 }
             }
