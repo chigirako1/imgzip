@@ -54,14 +54,14 @@ namespace MyZipper
             return Path.GetExtension(path);
         }
 
-        static public string GetZipPath(string path, int cnt, int totalNo)
+        static public string GetZipPath(string path, int cnt, int totalNo, string append_word = "")
         {
             var dirname = Path.GetDirectoryName(path);
             
             var fn = Path.GetFileNameWithoutExtension(path);
             var ext = Path.GetExtension(path);
 
-            string type = "D"; // 補間タイプ ("D"=10進数)
+            var type = "D"; // 補間タイプ ("D"=10進数)
             var digit = 3;  // 桁数
             if (totalNo > 999)
             {
@@ -70,9 +70,11 @@ namespace MyZipper
             StringBuilder sb = new StringBuilder();
             sb.Append(type);
             sb.Append(digit);
+            var number = cnt.ToString(sb.ToString());
 
-            //return Path.Combine(dirname, $"{fn}[{cnt:D3}]{ext}");
-            return Path.Combine(dirname, $"{fn}[{cnt.ToString(sb.ToString())}]{ext}");
+            var filename = $"{fn}[{number}]{append_word}";
+            var result = Path.Combine(dirname, filename + ext);
+            return result;
         }
 
         static public string AppendPostfixToFilename(string origName, string appdStr)

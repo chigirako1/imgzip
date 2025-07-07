@@ -48,6 +48,7 @@ namespace MyZipper
         {
             return string.Format("<{0}:{1}>", Col, Row);
         }
+
         static public SplitScreenNumber GetSplitNo(int count)
         {
             int max = 9;
@@ -140,7 +141,7 @@ namespace MyZipper
 
         public string GetDirectoryName()
         {
-            return System.IO.Path.GetDirectoryName(InputPath);
+            return Path.GetDirectoryName(InputPath);
         }
             
         public float GetAspectRatio()
@@ -307,13 +308,17 @@ namespace MyZipper
                 r,
                 si
                 );
-            if (!InputPath.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase))
+            if (InputPath.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase) ||
+                InputPath.EndsWith(".jpeg", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (FileSize > 1024 * 1024)
+                {
+                    Log.W($"ファイルサイズ大:{Util.FormatFileSize(FileSize)}[{PicSize.Width}x{PicSize.Height}]'{InputPath}'");
+                }
+            }
+            else
             {
                 Log.W($"非JPG:{InputPath}");
-            }
-            else if (FileSize > 1024*1024)
-            {
-                Log.W($"ファイルサイズ大:{Util.FormatFileSize(FileSize)}[{PicSize.Width}x{PicSize.Height}]'{InputPath}'");
             }
         }
     }
@@ -437,7 +442,8 @@ namespace MyZipper
         }
 
         private void SetPicInfosFromDir(List<String> filelist, Dictionary<SplitScreenNumber, int> dic)
-        { 
+        {
+            Log.I(">");
             foreach (var f in filelist.Select((it, idx) => (it, idx)))
             {
                 var fi = new FileInfo(f.it);
@@ -459,6 +465,7 @@ namespace MyZipper
 
                 SetPicInfosSub(pi, dic);
             }
+            Log.I("<");
 
             Config.FileSizeSum = FileSizeSum;
 
@@ -503,7 +510,7 @@ namespace MyZipper
 
         private void SetPicInfosStat(Dictionary<SplitScreenNumber, int> dic)
         {
-            Log.V("-------------------");
+            Log.I("-------------------");
             Log.V(String.Format("WxH:[{0,4}-{1,4}]x[{2,4}-{3,4}]", MinWidth, MaxWidth, MinHeight, MaxHeight));
             var LsColMin = Int32.MaxValue;
             var LsRowMin = Int32.MaxValue;
@@ -544,7 +551,7 @@ namespace MyZipper
             {
                 Config.PlNumberOfCol = PlColMin;
             }
-            Log.V("-------------------");
+            Log.I("-------------------");
         }
 
         public PicInfoList(PicInfoList picinfolist, int idx, ref int cnt)

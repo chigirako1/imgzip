@@ -85,6 +85,8 @@ namespace MyZipper
         // 出力Zipを分割するファイル数（0なら分割しない)
         public int OutputFileDivedeThreshold { get; private set; }
 
+        public bool AppendDirName { get; private set; }
+
         //エントリ名に元のファイル名を使用する
         //
         public bool UseOrigName { get; private set; }
@@ -153,6 +155,8 @@ namespace MyZipper
             Inputpath = inputpath;
             OutputPath = outputPath;
             UseOrigName = false;
+
+            AppendDirName = false;
 
             Mode = Mode.Auto;
             Sort = Sort.AUTO;

@@ -6,7 +6,6 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-//using System.Windows.Media;
 
 namespace MyZipper
 {
@@ -14,14 +13,15 @@ namespace MyZipper
     {
         private static readonly Brush BG_BRUSH = Brushes.Black;
         private static readonly Brush BG_BRUSH_ROT = Brushes.DarkCyan; 
-        private static readonly Brush BG_BRUSH_COMB = Brushes.DarkBlue; 
+        private static readonly Brush BG_BRUSH_COMB = Brushes.DarkBlue;
+        private static readonly Brush BG_BRUSH_FRAME = Brushes.Red;
         //static private Brush EMPTY_BG_BRUSH = Brushes.DarkGray;
         //static private Brush FONT_BRUSH = Brushes.Navy;
         private static readonly Brush FONT_BRUSH = Brushes.Cyan;
         private static readonly Brush FONT_BRUSH_I = Brushes.Magenta;
 
         private static readonly string FONT_NAME = "Yu Gotic UI";//"MS UI Gothic";
-        private static readonly int FONT_SIZE = 40;
+        private static readonly int FONT_SIZE = 20;
         private static readonly int FONT_SIZE2 = 20;
 
         private readonly Config _config;
@@ -108,6 +108,8 @@ namespace MyZipper
                         Sqlite.UpdatePxvRecord_ZippedAt(pxvid);
                         break;
                     case DATA_SOURCE_TYPE.DATA_SOURCE_TWT:
+                        // TODO:
+                        break;
                     default:
                         break;
                 }
@@ -217,9 +219,22 @@ namespace MyZipper
                         // 残りが少ない場合は一つにまとめる
                         //cnt = picinfolist.PicInfos.Count - idx;
                     }
-                    var plist = new PicInfoList(piclist, idx, ref cnt);
-                    var zipname = Util.GetZipPath(_config.OutputPath, idx, piclist.PicInfos.Count);
-                    OutputCombine_(plist, zipname);
+                    var plist_wk = new PicInfoList(piclist, idx, ref cnt);
+
+                    string append_word;
+                    if (_config.Mode == Mode.Pxv)
+                    {
+                        //append_word = "";
+                        append_word = Pxv.GetPxvArtworkTitleFromPath(plist_wk.PicInfos[0].InputPath) + $"[{plist_wk.PicInfos.Count}]";
+                    }
+                    else
+                    {
+                        append_word = Path.GetFileName(plist_wk.PicInfos[0].GetDirectoryName()) + $"[{plist_wk.PicInfos.Count}]";
+                    }
+                   
+                    var zipname = Util.GetZipPath(_config.OutputPath, idx, piclist.PicInfos.Count, append_word);
+
+                    OutputCombine_(plist_wk, zipname);
 
                     idx += cnt;
                 }
@@ -233,6 +248,8 @@ namespace MyZipper
 
         private void OutputCombine_(PicInfoList piclist, string zipname)
         {
+            Log.I($"zipname:'{Path.GetFileName(zipname)}', {piclist.PicInfos.Count}");
+
             FileMode filemode = FILEMODE;
             using (var zipToOpen = new FileStream(zipname, filemode))
             {
@@ -247,6 +264,7 @@ namespace MyZipper
                         OutputFilesToArchiveFile(piclist, archive);
                     }
 
+                    //画像情報のテキスト保存
                     string outtext = "";
                     foreach (var pic in piclist.PicInfos)
                     {
@@ -456,12 +474,18 @@ namespace MyZipper
             }
             Log.LogOut("<");
 
-            if (dic.Count > 1)
+            if (dic.Count > 1 && piclist.PicInfos.Count > 5 * 5)
             {
                 foreach (var d in dic)
                 {
                     var pic = d.Value;
-                    if (pic.Item1.Count > 4)
+                    if (piclist.PicInfos.Count -  pic.Item1.Count < 9)
+                    {
+                        // 全体数と個別の数が近い場合はサムネイル一覧作成不要
+                        break;
+                    }
+
+                    if (pic.Item1.Count > 9)
                     {
                         OutputGroupThumbnail_sub(pic.Item1, archive, pic.Item2);
                     }
@@ -598,7 +622,6 @@ namespace MyZipper
             p.IsDone = true;
         }
 
-
         private void AddSplitedImage(ref int cnt, PicInfo p, ZipArchive archive, int nume, int denomi)
         {
             var img = p.GetImage();
@@ -656,25 +679,21 @@ namespace MyZipper
             MakeImageAndAddZipEntrySub2(ref cnt, p, archive);
         }
 
-        private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false, bool ls = false, bool samedirlimit = false)
+        private void DrawBackgroudImage(int canvasWidth, int canvasHeight, Graphics g, Image img)
         {
-            int canvasWidth;
-            int canvasHeight;
-            if (ls)
-            {   // 縦と横を入れ替える
-                canvasWidth = _config.TargetScreenSize.Height; 
-                canvasHeight = _config.TargetScreenSize.Width;
-            }
-            else
-            {
-                canvasWidth = _config.TargetScreenSize.Width;
-                canvasHeight = _config.TargetScreenSize.Height;
-            }
-            var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
-            Graphics g = Graphics.FromImage(bmpCanvas);
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            //画像の描画
+            var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, false);
+            g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
 
-            // 背景描画
+            //半透明の黒で塗る
+            var opaque = 128;
+            var color = Color.FromArgb(opaque, Color.Black);
+            var opaqueBrush = new SolidBrush(color);
+            g.FillRectangle(opaqueBrush, 0, 0, canvasWidth, canvasHeight);
+        }
+
+        private void DrawBG(int canvasWidth, int canvasHeight, Graphics g, List<PicInfo> picInfos)
+        {
             var onecolor = false;
             if (onecolor)
             {
@@ -686,52 +705,60 @@ namespace MyZipper
                 var p = picInfos[0];
                 var img = p.GetImage();
 
-                var result = _coordinateCalculator.CalcCrop(img.Width, img.Height, false);
-                g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
-
-                var opaqueBrush = new SolidBrush(Color.FromArgb(128, 0, 0, 0)); ;
-                g.FillRectangle(opaqueBrush, 0, 0, canvasWidth, canvasHeight);
+                DrawBackgroudImage(canvasWidth, canvasHeight, g, img);
             }
+        }
 
+        private void DrawThumbnailInfo(int x, int y, Graphics g, List<PicInfo> picInfos)
+        {
+            var fsize = FONT_SIZE;
+            var fcolor = FONT_BRUSH;
+            var fnt = new Font(FONT_NAME, fsize);
+            var drawY = y;
+            string str;
+
+            var fsum = picInfos.Sum(d => d.FileSize);
+            var favg = (long)picInfos.Average(d => d.FileSize);
+
+            str = string.Format($"[{picInfos.Count} files|合計:{Util.FormatFileSize(fsum)}|平均:{Util.FormatFileSize(favg)}]{_config.Inputpath}");
+            g.DrawString(str, fnt, fcolor, x, drawY);
+            drawY += fsize;
+
+            switch (_config.Mode)
+            {
+                case Mode.Pxv:
+                    var pxvid = _config.GetPxvID();
+                    if (pxvid != 0)
+                    {
+                        var p_row = new PxvRow();
+                        Sqlite.GetPxvUserInfo(pxvid, p_row);
+                        g.DrawString(p_row.ToString(), fnt, fcolor, x, drawY);
+                        drawY += fsize;
+                    }
+
+                    var path = Pxv.GetPxvArtworkTitleFromPath(picInfos[0].InputPath);
+                    g.DrawString(path, fnt, fcolor, x, drawY);
+                    break;
+                case Mode.Twt:
+                    var twtid = _config.GetTwtID();
+                    var t_row = new TwtRow();
+                    Sqlite.GetTwtUserInfo(twtid, t_row);
+                    g.DrawString(t_row.ToString(), fnt, fcolor, x, drawY);
+                    break;
+                default:
+                    var str2 = picInfos[0].GetDirectoryName();
+                    g.DrawString(str2, fnt, fcolor, x, drawY);
+                    break;
+            }
+        }
+
+        private void GetCombineImage_Core(int canvasWidth, int canvasHeight, Graphics g, List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum, bool samedirlimit)
+        {
             var x = 0;
             var y = 0;
             if (thum)
             {
-                var fsize = FONT_SIZE;
-                var fcolor = FONT_BRUSH;
-                var fnt = new Font(FONT_NAME, fsize);
-                var drawY = y;
-                string str;
-
-                var fsum = picInfos.Sum(d => d.FileSize);
-                var favg = (long)picInfos.Average(d => d.FileSize);
-
-                str = string.Format($"[{picInfos.Count} files|合計:{Util.FormatFileSize(fsum)}|平均:{Util.FormatFileSize(favg)}]{_config.Inputpath}");
-                g.DrawString(str, fnt, fcolor, x, drawY);
-                drawY += fsize;
-
-                switch (_config.Mode)
-                {
-                    case Mode.Pxv:
-                        var pxvid = _config.GetPxvID();
-                        if (pxvid != 0)
-                        {
-                            var p_row = new PxvRow();
-                            Sqlite.GetPxvUserInfo(pxvid, p_row);
-                            g.DrawString(p_row.ToString(), fnt, fcolor, x, drawY);
-                        }
-                        break;
-                    case Mode.Twt:
-                        var twtid = _config.GetTwtID();
-                        var t_row = new TwtRow();
-                        Sqlite.GetTwtUserInfo(twtid, t_row);
-                        g.DrawString(t_row.ToString(), fnt, fcolor, x, drawY);
-                        break;
-                    default:
-                        var str2 = picInfos[0].GetDirectoryName();
-                        g.DrawString(str2, fnt, fcolor, x, drawY);
-                        break;
-                }
+                DrawThumbnailInfo(x, y, g, picInfos);
 
                 // 上に余白をあける
                 y = (canvasHeight / 16);
@@ -745,6 +772,9 @@ namespace MyZipper
             var quotaWidth = canvasWidth / splitNoV;
             var quotaHeight = (canvasHeight - y) / splitNoH;
 
+            int save_x = 0;
+            var save_y = 0;
+
             foreach (var p in picInfos)
             {
                 var dirname = p.GetDirectoryName();
@@ -754,8 +784,27 @@ namespace MyZipper
                 }
                 else
                 {
+                    if (dircnt > 0)
+                    {
+                        Log.LogOut($"'{dirpath}'({dircnt}){x},{y}");
+
+                        var sepa_w = quotaWidth / 5;
+                        var sepa_h = sepa_w;//quotaHeight / 5;
+                        var brush = new SolidBrush(Color.Black);
+                        g.FillRectangle(brush, save_x, save_y, sepa_w, sepa_h);
+
+                        var fsize = FONT_SIZE;
+                        var fcolor = Brushes.Red;
+                        var fnt = new Font(FONT_NAME, fsize);
+                        var txt = $"{dircnt}";
+                        g.DrawString(txt, fnt, fcolor, save_x, save_y);
+                    }
                     dirpath = dirname;
                     dircnt = 1;
+
+                    save_x = x;
+                    save_y = y;
+
                 }
                 if (samedirlimit && dircnt > splitNo.Col && x >= canvasWidth)
                 {
@@ -780,13 +829,18 @@ namespace MyZipper
                         img.RotateFlip(RotateFlipType.Rotate270FlipNone);
                         rotated = true;
                     }
-                    var result = _coordinateCalculator.CalcCrop(canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
+                    var result = _coordinateCalculator.CalcCrop(
+                        canvasWidth, canvasHeight, quotaWidth, quotaHeight, img.Width, img.Height, ref x, ref y);
                     g.DrawImage(img, result.DstRect, result.SrcRect, GraphicsUnit.Pixel);
 
                     if (rotated)
                     {
                         var pen = new Pen(Color.Purple, 5);
                         g.DrawRectangle(pen, result.DstRect);
+                    }
+
+                    if (dircnt == 1)
+                    {
                     }
                 }
                 else
@@ -812,6 +866,40 @@ namespace MyZipper
                 }
                 x += quotaWidth;
             }
+        }
+
+        private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false, bool ls = false, bool samedirlimit = false)
+        {
+            int canvasWidth;
+            int canvasHeight;
+            if (ls)
+            {   // 縦と横を入れ替える
+                canvasWidth = _config.TargetScreenSize.Height; 
+                canvasHeight = _config.TargetScreenSize.Width;
+            }
+            else
+            {
+                canvasWidth = _config.TargetScreenSize.Width;
+                canvasHeight = _config.TargetScreenSize.Height;
+            }
+            var bmpCanvas = new Bitmap(canvasWidth, canvasHeight);
+            var g = Graphics.FromImage(bmpCanvas);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            // 背景描画
+            DrawBG(canvasWidth, canvasHeight, g, picInfos);
+
+            GetCombineImage_Core(canvasWidth, canvasHeight, g, picInfos, splitNo, thum, samedirlimit);
+
+            if (thum)
+            {
+                //枠線の描画
+                var pen_width = 8;
+                var pen = new Pen(BG_BRUSH_FRAME, pen_width);
+                var rect = new Rectangle(0, 0, canvasWidth, canvasHeight);
+                g.DrawRectangle(pen, rect);
+            }
+
             g.Dispose();
 
             if (ls)
