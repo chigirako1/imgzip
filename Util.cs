@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Drawing;
+//using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
-using System.Text.RegularExpressions;
+//using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 
 namespace MyZipper
 {
@@ -18,6 +19,11 @@ namespace MyZipper
             return $"{bytes / Math.Pow(unit, exp):F2} {("KMGTPE")[exp - 1]}B";
         }
 
+        static public string[] GetDirectories(string path)
+        {
+            return Directory.GetDirectories(path);
+        }
+
         static public (string, string) SplitPath(string path)
         {
             var dn = Path.GetDirectoryName(path);
@@ -29,6 +35,16 @@ namespace MyZipper
         {
             var dirname = Path.GetDirectoryName(path);
             return Path.GetFileName(dirname);
+        }
+
+        static public (string, string) DivPathDirAndFile(string path)
+        {
+            var dirname = Util.GetParentDir(path);
+            var fn = Path.GetFileNameWithoutExtension(path);
+
+            Log.I($"'{path}' => '{dirname}' | '{fn}'");
+
+            return (dirname, fn);
         }
 
         static public string GetEntryName(string path)
@@ -52,6 +68,23 @@ namespace MyZipper
         static public string GetExt(string path)
         {
             return Path.GetExtension(path);
+        }
+
+        static public string GetZipPath(string path, string append_word)
+        {
+            var fn = Path.GetFileNameWithoutExtension(path);
+            var ext = Path.GetExtension(path);
+            var dirname = Path.GetDirectoryName(path);
+
+            var length = 5;
+            if (append_word.Length > length * 2 + 1)
+            {
+                append_word = append_word.Substring(0, length) + "～" + append_word.Substring(append_word.Length - length, length);
+            }
+
+            Log.D($"'{path}' => '{dirname}' | '{fn}' | '{append_word}' + '{ext}'");
+
+            return Path.Combine(dirname, fn + append_word + ext);
         }
 
         static public string GetZipPath(string path, int cnt, int totalNo, string append_word = "")
@@ -113,6 +146,10 @@ namespace MyZipper
 #endif
         public static bool Verbose = false;
 
+        static Log()
+        {
+        }
+
         static public void E(string s, params Object[] args)
         {
             LogOut("[E] ", s, args);
@@ -123,11 +160,20 @@ namespace MyZipper
             LogOut("[W] ", s, args);
         }
 
-        static public void D(string s, params Object[] args)
+        static public void D(string str,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
         {
             if (Dbg)
-            { 
-                LogOut("[D] ", s, args);
+            {
+                
+                Console.Error.WriteLine($"[D] {str}");
+            }
+            var d = false;
+            if (d)
+            {
+                Console.Error.WriteLine($"[{DateTime.Now}] [{memberName}() '{filePath}'({lineNumber})] {str}");
             }
         }
 
@@ -165,8 +211,11 @@ namespace MyZipper
     {
         static public void CreateEntryFromFile(ZipArchive archive, string rootpath, string infilepath)
         {
-            //Path.DirectorySeparatorChar
             var subdir = infilepath.Replace(rootpath + Path.DirectorySeparatorChar, "");//tekitou
+
+            Log.D($"rootpath=  '{rootpath}'"); 
+            //Log.D($"infilepath='{infilepath}'");
+            Log.D($"subdir=    '{subdir}'");
             archive.CreateEntryFromFile(infilepath, subdir);
         }
     }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace MyZipper
@@ -72,26 +73,33 @@ namespace MyZipper
         public Sort Sort { get; private set; }
         public DATA_SOURCE_TYPE DataSourceType { get; private set; }
 
+        public bool DebugMode { get; private set; }
+
         // input
-        public string Inputpath { get; private set; }
+        public string InputPath { get; set; }
 
         public Size TargetScreenSize { get; set; }
 
         // output
-        public string OutputDir { get; private set; }
-        public string OutputFileame { get; private set; }
-        public string OutputPath { get; private set; }
+        //public string OutputDir { get; private set; }
+        //public string OutputFileame { get; private set; }
+        //public string OutputPath { get; private set; }
+        public string OutputPath { get; set; }
 
         // 出力Zipを分割するファイル数（0なら分割しない)
-        public int OutputFileDivedeThreshold { get; private set; }
+        //public int OutputFileDivedeThreshold { get; private set; }
+
+        public bool Overwrite{ get; private set; }
 
         public bool AppendDirName { get; private set; }
+        public int AppendDirNameLimitN { get; private set; }
 
         //エントリ名に元のファイル名を使用する
         //
         public bool UseOrigName { get; private set; }
 
         public int SplitLR { get; private set; }
+        public int Nin1 { get; private set; }
 
 
         //縦長画像用の分割数
@@ -106,7 +114,7 @@ namespace MyZipper
         public DateTime? Since { get; set; }
 
         // 縦長、横長画像を別のzipファイルに出力するか
-        public bool IsSeparateOutput { get; private set; }
+        //public bool IsSeparateOutput { get; private set; }
 
         // 横長画像を回転するか
         public bool IsRotatePlImage { get; private set; }
@@ -120,6 +128,9 @@ namespace MyZipper
         public bool IsShrink { get; private set; }
 
         public bool UpdateDB { get; private set; }
+
+        //サブディレクトリでzip分割
+        public int DivSubDir { get; private set; }
 
         public int SeparateFileNumberThreashold{ get; private set; }
         public int SeparateFileNumber { get; private set; }
@@ -140,8 +151,11 @@ namespace MyZipper
                 Environment.Exit(1);
             }
 
-            string outPath = args[1];
-            string inPath = args[2];
+            var outPath = args[1];
+            var inPath = args[2];
+
+            inPath = inPath.Replace("/", "\\");
+
 
             Init(inPath, outPath);
 
@@ -152,11 +166,19 @@ namespace MyZipper
 
         private void Init(string inputpath, string outputPath)
         {
-            Inputpath = inputpath;
+            InputPath = inputpath;
             OutputPath = outputPath;
             UseOrigName = false;
 
+#if DEBUG
+            //デバッグ時は上書きする（消すの面倒なので
+            Overwrite = false;
+#else
+            Overwrite = false;
+#endif
+
             AppendDirName = false;
+            AppendDirNameLimitN = 15;
 
             Mode = Mode.Auto;
             Sort = Sort.AUTO;
@@ -164,7 +186,7 @@ namespace MyZipper
 
             TargetScreenSize = new Size(1200, 1920);//10:16=5:8
             //TargetScreenSize = new Size(1920, 1200);
-            OutputFileDivedeThreshold = 0;
+            //OutputFileDivedeThreshold = 0;
             PlNumberOfCol = 2;
             PlNumberOfRow = 2;
             LsNumberOfCol = 1;
@@ -175,7 +197,7 @@ namespace MyZipper
 
             Since = null;
 
-            IsSeparateOutput = false;
+            //IsSeparateOutput = false;
             IsRotatePlImage = false;
             IsPicSizeDraw = false;
             IsForce2P = false;
@@ -185,6 +207,8 @@ namespace MyZipper
             LsCompositeLs = false;
             IsShrink = true;
             UpdateDB = false;
+
+            DivSubDir = 0;
 
             SeparateFileNumberThreashold = 0;
             SeparateFileNumber = 0;
@@ -255,6 +279,11 @@ namespace MyZipper
                 var opt = arg.Split('=');
                 switch (opt[0])
                 {
+                    case "Debug":
+                        DebugMode = true;
+                        Log.Dbg = true;
+                        Log.I($"DebugMode={DebugMode}");
+                        break;
                     case "UpdateDB":
                         UpdateDB = true;
                         Log.I($"UpdateDB={UpdateDB}");
@@ -262,6 +291,14 @@ namespace MyZipper
                     case "useOrigName":
                         UseOrigName = true;
                         Log.I("UseOrigName={0}", UseOrigName);
+                        break;
+                    case "overwrite":
+                        this.Overwrite = true;
+                        Log.I("Overwrite={0}", Overwrite);
+                        break;
+                    case "Nin1":
+                        Nin1 = int.Parse(opt[1]);
+                        Log.I("Nin1={0}", Nin1);
                         break;
                     case "splitLR":
                         SplitLR = int.Parse(opt[1]);
@@ -330,6 +367,20 @@ namespace MyZipper
                         }
                         Log.I("sort={0}", Sort);
                         break;
+                    case "DivSubDir":
+                        var rgx_d = new Regex(@"(\d+)");
+                        var match_d = rgx_d.Match(opt[1]);
+                        if (match_d.Success)
+                        {
+                            DivSubDir = int.Parse(match_d.Groups[1].Value);
+                            Log.I($"DivSubDir = {DivSubDir}");
+                        }
+                        else
+                        {
+                            Log.E($"オプションが不正です。{opt[1]}");
+                            Environment.Exit(1);
+                        }
+                        break;
                     case "separate":
                         var rgx = new Regex(@"(\d+):(\d+):(\d+)");
                         var match = rgx.Match(opt[1]);
@@ -339,7 +390,7 @@ namespace MyZipper
                             SeparateFileNumberThreashold = int.Parse(match.Groups[1].Value);
                             SeparateFileNumber = int.Parse(match.Groups[2].Value);
                             SeparateFileNumberMax = int.Parse(match.Groups[3].Value);
-                            Log.I("sepa={0}:{1}:{2}", SeparateFileNumberThreashold, SeparateFileNumber, SeparateFileNumberMax);
+                            Log.I($"sepa={SeparateFileNumberThreashold}:{SeparateFileNumber}:{SeparateFileNumberMax}");
                         }
                         else
                         {
@@ -351,6 +402,18 @@ namespace MyZipper
                         Log.E($"オプションが不正です。=> {opt[0]}");
                         break;
                 }
+            }
+        }
+
+        public FileMode GetFilemode()
+        {
+            if (this.Overwrite)
+            {
+                return FileMode.Create;
+            }
+            else
+            {
+                return FileMode.CreateNew;
             }
         }
 
@@ -406,7 +469,7 @@ namespace MyZipper
             Debug.Assert(this.Mode == Mode.Twt);
 
             {
-                return Twt.GetTwtID(Inputpath);
+                return Twt.GetTwtID(InputPath);
             }
         }
 
@@ -415,9 +478,11 @@ namespace MyZipper
             Debug.Assert(this.Mode == Mode.Pxv);
 
             {
-                return Pxv.GetPxvID(Inputpath);
+                return Pxv.GetPxvID(InputPath);
             }
         }
+
+
         private DATA_SOURCE_TYPE GetSourceType(string path)
         {
             DATA_SOURCE_TYPE result;

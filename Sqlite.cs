@@ -102,6 +102,10 @@ namespace MyZipper
                     if (result > 0)
                     {
                         Log.D($"更新成功'{pxv_user_id}'");
+                        if (result > 1)
+                        {
+                            Log.W($"複数???{result}");
+                        }
                     }
                     else
                     {

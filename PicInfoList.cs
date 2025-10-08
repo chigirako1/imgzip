@@ -127,7 +127,7 @@ namespace MyZipper
         {
             if (IsZipEntry)
             {
-                using (var archive = ZipFile.OpenRead(_config.Inputpath))
+                using (var archive = ZipFile.OpenRead(_config.InputPath))
                 {
                     var ent = archive.GetEntry(InputPath);
                     return Image.FromStream(ent.Open());
@@ -172,9 +172,9 @@ namespace MyZipper
             {
                 //InputPathがフルパスなのに_config.Inputpathは相対パスなのでうまくいかない。
                 //_config.Inputpathをフルパスにしておく？
-                var title = InputPath.Replace(_config.Inputpath + Path.DirectorySeparatorChar, "");
+                var title = InputPath.Replace(_config.InputPath + Path.DirectorySeparatorChar, "");
                 Log.W($"InputPath='{InputPath}'");
-                Log.W($"cnfg='{_config.Inputpath + Path.DirectorySeparatorChar}'");
+                Log.W($"cnfg='{_config.InputPath + Path.DirectorySeparatorChar}'");
                 Log.W($"title='{title}'");
                 return title;
             }
@@ -356,9 +356,19 @@ namespace MyZipper
             }
         }
 
-        private List<String> GetFileList(string path)
+        private List<String> GetFileList(string path, bool alldir=true)
         {
-            var files = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories).OrderBy(f => f)
+            SearchOption searchOption;
+            if (alldir)
+            {
+                searchOption = SearchOption.AllDirectories;
+            }
+            else
+            {
+                searchOption = SearchOption.TopDirectoryOnly;
+            }
+                
+            var files = Directory.GetFiles(path, "*.*", searchOption).OrderBy(f => f)
                 .Where(s =>
                     s.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase) ||
                     s.EndsWith(".jpeg", StringComparison.CurrentCultureIgnoreCase) ||
@@ -375,7 +385,7 @@ namespace MyZipper
                         filelist.Sort(new PxvTitleComparer());
                         break;
                     case Sort.TITLE_CP:
-                        filelist.Sort(new PxvTitleComparer(1));
+                        filelist.Sort(new PxvTitleComparerB());
                         break;
                     case Sort.PXV_ARTWORK_ID:
                         //TODO: artwork idでソート？
@@ -474,7 +484,7 @@ namespace MyZipper
 
         private void SetPicInfosFromZip(List<String> filelist, Dictionary<SplitScreenNumber, int> dic)
         {
-            using (var archive = ZipFile.OpenRead(Config.Inputpath))
+            using (var archive = ZipFile.OpenRead(Config.InputPath))
             {
                 foreach (var f in filelist.Select((it, idx) => (it, idx)))
                 {
@@ -620,6 +630,51 @@ namespace MyZipper
             Log.D($"idx={idx}, cnt={cnt}, count={count}, *={picinfolist.PicInfos.Count}");
 
             PicInfos = picinfolist.PicInfos.GetRange(idx, count);
+
+            //?bug?
+            MinWidth = picinfolist.MinWidth;
+            MinHeight = picinfolist.MinHeight;
+            MaxWidth = picinfolist.MaxWidth;
+            MaxHeight = picinfolist.MaxHeight;
+        }
+
+        private List<PicInfo> GetSubList(PicInfoList picinfolist, string path)
+        {
+            var idx = -1;
+            var count = 0;
+
+            for (var i = 0; i <= picinfolist.PicInfos.Count; i++)
+            {
+                var dirname2 = picinfolist.PicInfos[i].GetDirectoryName();
+                if (path == dirname2)
+                {
+                    if (idx < 0)
+                    {
+                        idx = i;
+                    }
+                    count++;
+                }
+                else
+                {
+                    if (count > 0)
+                    {
+                        break;
+                    }
+                }
+
+                idx++;
+            }
+
+            return picinfolist.PicInfos.GetRange(idx, count);
+        }
+
+        public PicInfoList(PicInfoList picinfolist, string path)
+        {
+            Config = picinfolist.Config;
+
+            //Log.D($"idx={idx}, cnt={cnt}, count={count}, *={picinfolist.PicInfos.Count}");
+
+            this.PicInfos = GetSubList(picinfolist, path);
 
             //?bug?
             MinWidth = picinfolist.MinWidth;
