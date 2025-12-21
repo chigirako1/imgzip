@@ -1,8 +1,6 @@
 ﻿using MyZipper.src;
 using System;
-using System.CodeDom;
 using System.IO;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace MyZipper
 {
@@ -24,11 +22,17 @@ namespace MyZipper
                     var apnd_dir_name = Path.GetFileName(d);
                     config.InputPath = Path.Combine(orig_in_path, apnd_dir_name);
 
-                    //TODO: 同一のファイル名になった場合の処理 ファイル名+数字
 
                     config.OutputPath = Util.GetZipPath(orig_out_path, apnd_dir_name);
                     //Log.D($"'{orig_in_path}'/'{apnd_dir_name}'/' => {config.InputPath}'");
                     //Log.D($"'{orig_out_path}' => '{config.OutputPath}'");
+
+                    //TODO: 同一のファイル名になった場合の処理 ファイル名+数字もしくは時間？
+                    //ループ追加
+                    if (Directory.Exists(config.OutputPath))
+                    {
+                        config.OutputPath = Util.GetZipPath(config.OutputPath, "1");
+                    }
 
                     var piclist = PrepareFilelist(config);
                     var result = MainRoutine(config, piclist);

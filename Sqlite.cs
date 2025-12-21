@@ -63,7 +63,8 @@ namespace MyZipper
                 cn.Open();
                 using (var cmd = new SQLiteCommand(cn))
                 {
-                    cmd.CommandText = $"SELECT * FROM artists WHERE pxvid = '{pxvid}'";
+                    //cmd.CommandText = $"SELECT * FROM artists WHERE pxvid = '{pxvid}'";
+                    cmd.CommandText = $"SELECT * FROM artists WHERE pxvid = {pxvid}";
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())

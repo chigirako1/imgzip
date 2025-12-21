@@ -76,7 +76,7 @@ namespace MyZipper
             var ext = Path.GetExtension(path);
             var dirname = Path.GetDirectoryName(path);
 
-            var length = 5;
+            var length = 10;
             if (append_word.Length > length * 2 + 1)
             {
                 append_word = append_word.Substring(0, length) + "～" + append_word.Substring(append_word.Length - length, length);

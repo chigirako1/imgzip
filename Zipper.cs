@@ -6,6 +6,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 //using System.Windows.Media;
 
 namespace MyZipper
@@ -240,7 +241,6 @@ namespace MyZipper
             }
         }
 
-
         private void OutputThumbnailListToArchiveFile(PicInfoList piclist, ZipArchive archive)
         {
             var splitNo = SplitScreenNumber.GetSplitNo(piclist.PicInfos.Count);
@@ -325,6 +325,7 @@ namespace MyZipper
 
             if (wkPicInfos.Count > 0)
             {
+                Math.Min(wkPicInfos.Count, nin1);
                 entryname = MakeEntryName(ref cnt, wkPicInfos, "Nin1");
                 OutCombineImageNin1(wkPicInfos, archive, entryname, nin1);
             }
@@ -533,7 +534,8 @@ namespace MyZipper
             splitNo.Col = nin1;
             splitNo.Row = nin1;
 
-            byte[] bs = GetCombineImage(picInfos, splitNo);
+            var thumb = true;
+            byte[] bs = GetCombineImage(picInfos, splitNo, thumb);
 
             AddZipEntry(archive, entryname, bs);
 
@@ -720,7 +722,8 @@ namespace MyZipper
 
         private void DrawBG(int canvasWidth, int canvasHeight, Graphics g, List<PicInfo> picInfos)
         {
-            var onecolor = false;
+            //var onecolor = false;
+            var onecolor = true;//背景画像あんま意味ないかな。。。遅くなりそうだし
             if (onecolor)
             {
                 var brush = BG_BRUSH_COMB;
@@ -855,8 +858,18 @@ namespace MyZipper
                 {
                     // 同一ディレクトリのファイルのサムネイル出力数を制限する
 
-                    var brush = new SolidBrush(Color.Black);
-                    g.FillRectangle(brush, x - (quotaWidth / 2), y, 100, 100);
+                    var hoge = false;
+                    if (hoge)
+                    {
+                        //TODO:何回も同じとこに描いてるので無駄
+                        var w = 50;
+                        var h = 50;
+                        var tmp_x = x - w;//x - (quotaWidth / 2);
+                        var tmp_y = y + quotaHeight - h;
+                        var brush = new SolidBrush(Color.Black);
+                        g.FillRectangle(brush, tmp_x, tmp_y, w, h);
+                        //Log.D($"{tmp_x},{tmp_y}({w}x{h})");
+                    }
 
                     continue;
                 }
@@ -923,7 +936,12 @@ namespace MyZipper
             }
         }
 
-        private byte[] GetCombineImage(List<PicInfo> picInfos, SplitScreenNumber splitNo, bool thum = false, bool ls = false, bool samedirlimit = false)
+        private byte[] GetCombineImage(
+            List<PicInfo> picInfos,
+            SplitScreenNumber splitNo,
+            bool thum = false,
+            bool ls = false,
+            bool samedirlimit = false)
         {
             int canvasWidth;
             int canvasHeight;
