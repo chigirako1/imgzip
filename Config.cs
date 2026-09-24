@@ -130,7 +130,7 @@ namespace MyZipper
         public bool UpdateDB { get; private set; }
 
         //サブディレクトリでzip分割
-        public int DivSubDir { get; private set; }
+        public int DivSubDir { get; set; }
 
         public int SeparateFileNumberThreashold{ get; private set; }
         public int SeparateFileNumber { get; private set; }

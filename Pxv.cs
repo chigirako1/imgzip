@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -47,6 +48,51 @@ namespace MyZipper
             {
                 Log.W("rgx err:'{0}'", path);
                 return "";
+            }
+        }
+    }
+
+    class PxvArtworkInfo
+    {
+        public DateTime ArtworkDate;
+        public String ArtworkTitle;
+        public long ArtworkID;
+
+        public string DateToString()
+        {
+            return ArtworkDate.ToString("yyMMdd");
+        }
+
+        static public PxvArtworkInfo GetPxvArtworkInfoFromPath(string path, string regex_str = @"(\d\d-\d\d-\d\d)\s+(.*)\((\d+)\)")
+        {
+            Regex rgx = new Regex(regex_str);
+            Match m = rgx.Match(path);
+            if (m.Success)
+            {
+                var dateStr = m.Groups[1].Value;
+                var title = m.Groups[2].Value;
+                var artworkID = m.Groups[3].Value;
+
+                Log.D($"{artworkID}\t{title}\t{dateStr}\t'{path}'");
+
+                var date = DateTime.ParseExact(
+                    dateStr,
+                    "yy-MM-dd",
+                    CultureInfo.InvariantCulture
+                );
+
+                var info = new PxvArtworkInfo
+                {
+                    ArtworkDate = date,
+                    ArtworkTitle = title,
+                    ArtworkID = long.Parse(artworkID)
+                };
+                return info;
+            }
+            else
+            {
+                Log.W("rgx err:'{0}'", path);
+                return null;
             }
         }
     }

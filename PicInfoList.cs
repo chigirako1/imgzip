@@ -1,5 +1,6 @@
 ﻿using MyZipper.src;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
@@ -125,7 +126,7 @@ namespace MyZipper
 
         public Image GetImage()
         {
-            if (IsZipEntry)
+            if (this.IsZipEntry)
             {
                 using (var archive = ZipFile.OpenRead(_config.InputPath))
                 {
@@ -326,7 +327,7 @@ namespace MyZipper
     internal class PicInfoList
     {
         public List<PicInfo> PicInfos { get; }
-        readonly Config Config;
+        readonly Config Config;//ゴミ。グローバル変数やんけ
 
         public int MinWidth { get; private set; }
         public int MinHeight { get; private set; }
@@ -339,47 +340,55 @@ namespace MyZipper
             return FileSizeSum / PicInfos.Count;
         }
 
-        public PicInfoList(string path, Config config)
+        public PicInfoList(string path, Config config, bool alldir)
         {
             PicInfos = new List<PicInfo>();
             Config = config;
 
-            if (File.GetAttributes(path).HasFlag(FileAttributes.Directory))
+            if (Util.IsDirectory(path))
             {
-                List<String> filelist = GetFileList(path);
+                var filelist = Util.GetImageFiles(path, alldir);
+                SortFileList(filelist, config.Mode, config.Sort);
                 SetPicInfos(filelist);
             }
             else
             {// zipとして扱う
-                List<String> filelist = GetFileListFromZip(path);
+                var filelist = GetFileListFromZip(path);
                 SetPicInfos(filelist, true);
             }
         }
 
-        private List<String> GetFileList(string path, bool alldir=true)
+        public PicInfoList(List<string> dirs, Config config)
         {
-            SearchOption searchOption;
-            if (alldir)
-            {
-                searchOption = SearchOption.AllDirectories;
-            }
-            else
-            {
-                searchOption = SearchOption.TopDirectoryOnly;
-            }
-                
-            var files = Directory.GetFiles(path, "*.*", searchOption).OrderBy(f => f)
-                .Where(s =>
-                    s.EndsWith(".jpg", StringComparison.CurrentCultureIgnoreCase) ||
-                    s.EndsWith(".jpeg", StringComparison.CurrentCultureIgnoreCase) ||
-                    s.EndsWith(".png", StringComparison.CurrentCultureIgnoreCase) ||
-                    s.EndsWith(".gif", StringComparison.CurrentCultureIgnoreCase)
-                    );
+            PicInfos = new List<PicInfo>();
+            Config = config;
 
-            var filelist = new List<string>(files);
-            if (Config.Mode == Mode.Pxv || Config.Mode == Mode.PassThrough)
+            var filelist = new List<String>();
+
+            foreach (string path in dirs)
             {
-                switch (Config.Sort)
+                if (Util.IsDirectory(path))
+                {
+                    var files = Util.GetImageFiles(path, true);
+                    filelist.AddRange(files);
+                    Log.I($"filelist={filelist.Count}\t'{path}'\t{files.Count}");
+                }
+                else
+                {
+                    Log.E($"'{path}'はディレクトリではない");
+                }
+            }
+
+
+            SortFileList(filelist, config.Mode, config.Sort);
+            SetPicInfos(filelist);
+        }
+
+        private void SortFileList(List<String> filelist, Mode Mode, Sort Sort)
+        {
+            if (Mode == Mode.Pxv || Mode == Mode.PassThrough)
+            {
+                switch (Sort)
                 {
                     case Sort.TITLE:
                         filelist.Sort(new PxvTitleComparer());
@@ -399,8 +408,7 @@ namespace MyZipper
             {
                 filelist.Sort(new NaturalStringComparer());
             }
-           
-            return filelist;
+         
         }
 
         private List<String> GetFileListFromZip(string path)
@@ -638,7 +646,7 @@ namespace MyZipper
             MaxHeight = picinfolist.MaxHeight;
         }
 
-        private List<PicInfo> GetSubList(PicInfoList picinfolist, string path)
+        /*private List<PicInfo> GetSubList(PicInfoList picinfolist, string path)
         {
             var idx = -1;
             var count = 0;
@@ -666,8 +674,9 @@ namespace MyZipper
             }
 
             return picinfolist.PicInfos.GetRange(idx, count);
-        }
+        }*/
 
+        /*
         public PicInfoList(PicInfoList picinfolist, string path)
         {
             Config = picinfolist.Config;
@@ -681,6 +690,6 @@ namespace MyZipper
             MinHeight = picinfolist.MinHeight;
             MaxWidth = picinfolist.MaxWidth;
             MaxHeight = picinfolist.MaxHeight;
-        }
+        }*/
     }
 }
